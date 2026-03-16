@@ -1,0 +1,50 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": {
+    "source": "functions",
+    "codebase": "default",
+    "ignore": ["node_modules", ".git", "firebase-debug.log", "lib"]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "turfgo-3c555",
+          "appId": "1:860814301168:android:6a051da339a44abe94af35",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "turfgo-3c555",
+          "appId": "1:860814301168:ios:e1f0e20ea0a3012194af35",
+          "uploadDebugSymbols": true,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "turfgo-3c555",
+          "appId": "1:860814301168:ios:e1f0e20ea0a3012194af35",
+          "uploadDebugSymbols": true,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "turfgo-3c555",
+          "configurations": {
+            "android": "1:860814301168:android:6a051da339a44abe94af35",
+            "ios": "1:860814301168:ios:e1f0e20ea0a3012194af35",
+            "macos": "1:860814301168:ios:e1f0e20ea0a3012194af35",
+            "web": "1:860814301168:web:bde0c3e1476c8f9a94af35",
+            "windows": "1:860814301168:web:96d8a0523928f17294af35"
+          }
+        }
+      }
+    }
+  }
+}

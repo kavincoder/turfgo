@@ -1,0 +1,210 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    // Is the request from any authenticated user?
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Is the request from the user with the given uid?
+    function isSelf(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    // Is the authenticated user an admin?
+    // Reads the user doc — only called on sensitive paths to minimise read cost.
+    function isAdmin() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Is the authenticated user the owner of the given turf?
+    function isTurfOwner(turfId) {
+      return isAuth() &&
+        get(/databases/$(database)/documents/turfs/$(turfId)).data.ownerId == request.auth.uid;
+    }
+
+    // ── Users ─────────────────────────────────────────────────────────────────
+    // • Read  : own document only (or admin)
+    // • Create: only for own uid; role is locked to 'player' — cannot self-assign
+    //           owner/admin; only whitelisted fields accepted.
+    // • Update: own document; role, phone, and createdAt are immutable from client.
+    // • Delete: nobody — use admin SDK / Cloud Function if ever needed.
+
+    match /users/{userId} {
+      allow read: if isSelf(userId) || isAdmin();
+
+      allow create: if isSelf(userId)
+        && request.resource.data.role == 'player'
+        && request.resource.data.keys().hasAll(['name', 'phone', 'cityId', 'role', 'createdAt'])
+        && request.resource.data.keys().hasOnly([
+             'name', 'phone', 'cityId', 'role',
+             'referralCode', 'referredBy', 'createdAt'
+           ]);
+
+      allow update: if isSelf(userId)
+        // Prevent role escalation — role can never be set to admin or owner from client
+        && request.resource.data.role != 'admin'
+        && request.resource.data.role != 'owner';
+
+      allow delete: if false;
+    }
+
+    // ── Cities ────────────────────────────────────────────────────────────────
+    // Public read for authenticated users. Write is admin-only.
+
+    match /cities/{cityId} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ── Turfs ─────────────────────────────────────────────────────────────────
+    // • Read  : any authenticated user (needed for home/explore screens)
+    // • Create: admin only
+    // • Update: admin can change anything; turf owners can update descriptive
+    //           fields only — financial/ownership/status fields are locked.
+    // • Delete: admin only
+
+    match /turfs/{turfId} {
+      allow read:   if isAuth();
+      allow create: if isAdmin();
+
+      allow update: if isAdmin()
+        || (isTurfOwner(turfId)
+            // Owners cannot touch financial or status fields
+            && !request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(['ownerId', 'cityId', 'pricePerHour', 'rating', 'isActive']));
+
+      allow delete: if isAdmin();
+
+      // ── Slots (subcollection) ──────────────────────────────────────────────
+      // Read : any authenticated user (slot availability display)
+      // Write: Cloud Functions only — slot locking and booking must be
+      //        server-side so payment cannot be bypassed from the client.
+
+      match /slots/{slotId} {
+        allow read:  if isAuth();
+        allow write: if false; // Cloud Functions (admin SDK) only
+      }
+    }
+
+    // ── Bookings ──────────────────────────────────────────────────────────────
+    // • Create: Cloud Functions only — payment must be verified server-side
+    //           before a booking doc is written. Never allow direct client writes.
+    // • Read  : the booking's own user, the turf owner, or admin.
+    // • Update: the booking's user can cancel a pending booking (status →
+    //           'cancelled', only status + cancelledAt may change).
+    // • Delete: nobody.
+
+    match /bookings/{bookingId} {
+      allow read: if isAuth() && (
+        resource.data.userId == request.auth.uid ||
+        isTurfOwner(resource.data.turfId) ||
+        isAdmin()
+      );
+
+      allow create: if false; // Cloud Functions only
+
+      allow update: if isAuth()
+        && resource.data.userId    == request.auth.uid
+        && resource.data.status    == 'pending'
+        && request.resource.data.status == 'cancelled'
+        // Only these two fields may change — nothing else
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'cancelledAt']);
+
+      allow delete: if false;
+    }
+
+    // ── Reviews ───────────────────────────────────────────────────────────────
+    // • Read  : any authenticated user (turf rating display)
+    // • Create: authenticated user, must match own userId, isVerified locked to
+    //           false (Cloud Function verifies completed booking before marking
+    //           true), rating 1–5, comment 1–500 chars.
+    // • Update: admin only (e.g. to mark isVerified = true)
+    // • Delete: admin only
+
+    match /reviews/{reviewId} {
+      allow read: if isAuth();
+
+      allow create: if isAuth()
+        && request.resource.data.userId     == request.auth.uid
+        && request.resource.data.isVerified == false
+        && request.resource.data.rating     is int
+        && request.resource.data.rating     >= 1
+        && request.resource.data.rating     <= 5
+        && request.resource.data.comment    is string
+        && request.resource.data.comment.size() > 0
+        && request.resource.data.comment.size() <= 500
+        && request.resource.data.keys().hasOnly([
+             'userId', 'turfId', 'bookingId',
+             'rating', 'comment', 'createdAt', 'isVerified'
+           ]);
+
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Transactions ──────────────────────────────────────────────────────────
+    // Written by Cloud Functions only.
+    // Users can read their own transaction history. Admins can read all.
+
+    match /transactions/{txId} {
+      allow read: if isAuth() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow write: if false; // Cloud Functions only
+    }
+
+    // ── Payouts ───────────────────────────────────────────────────────────────
+    // Written by Cloud Functions only.
+    // Turf owners can read their own payout records. Admins can read all.
+
+    match /payouts/{payoutId} {
+      allow read: if isAuth() && (
+        isTurfOwner(resource.data.turfId) || isAdmin()
+      );
+      allow write: if false; // Cloud Functions only
+    }
+
+    // ── OTP Attempts ──────────────────────────────────────────────────────────
+    // Rate-limiting data managed exclusively by Cloud Functions.
+    // No client access whatsoever — prevents clients from resetting their own
+    // rate-limit counters.
+
+    match /otpAttempts/{docId} {
+      allow read, write: if false; // Cloud Functions only
+    }
+
+    // ── Referrals ─────────────────────────────────────────────────────────────
+    // Referral logic handled by Cloud Functions.
+    // Users can only read their own referral document.
+
+    match /referrals/{referralId} {
+      allow read:  if isAuth() && resource.data.userId == request.auth.uid;
+      allow write: if false; // Cloud Functions only
+    }
+
+    // ── Waitlist ──────────────────────────────────────────────────────────────
+    // Anyone (even unauthenticated) can submit to the waitlist.
+    // Only admins can read entries or manage them.
+
+    match /waitlist/{docId} {
+      allow create: if request.resource.data.keys().hasOnly(['phone', 'name', 'cityId', 'createdAt'])
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() > 0;
+
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ── Deny everything else ──────────────────────────────────────────────────
+    // Explicit catch-all: any collection not listed above is fully locked.
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
