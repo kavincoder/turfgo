@@ -8,79 +8,150 @@ const db = admin.firestore();
 const LOCK_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 
 // ── lockSlot ──────────────────────────────────────────────────────────────────
-// Called by the client when a user selects a slot, before payment begins.
-// Locks the slot for 5 minutes for this user. If already locked by another
-// user, returns an error so the client can show "slot just taken" UI.
+// Locks one or more slots atomically for 5 minutes for this user.
+// For multi-hour bookings, pass all slot IDs in the selected range.
+// If any slot is booked or locked by another user, the entire transaction fails.
 
 export const lockSlot = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Must be logged in.");
   }
 
-  const { turfId, slotId } = request.data as {
+  const { turfId, slotIds } = request.data as {
     turfId: string;
-    slotId: string;
+    slotIds: string[];
   };
 
-  if (!turfId || !slotId) {
+  if (!turfId || !slotIds || slotIds.length === 0) {
     throw new HttpsError(
       "invalid-argument",
-      "turfId and slotId are required."
+      "turfId and slotIds are required."
     );
   }
 
   const uid = request.auth.uid;
-  const slotRef = db
-    .collection("turfs")
-    .doc(turfId)
-    .collection("slots")
-    .doc(slotId);
 
   return db.runTransaction(async (tx) => {
-    const slot = await tx.get(slotRef);
+    const slotRefs = slotIds.map((slotId) =>
+      db.collection("turfs").doc(turfId).collection("slots").doc(slotId)
+    );
+    const slotDocs = await Promise.all(slotRefs.map((ref) => tx.get(ref)));
 
-    if (!slot.exists) {
-      throw new HttpsError("not-found", "Slot not found.");
-    }
-
-    const data = slot.data()!;
     const now = admin.firestore.Timestamp.now();
-    const lockedUntil = data.lockedUntil as admin.firestore.Timestamp | null;
-
-    if (data.isBooked) {
-      throw new HttpsError("already-exists", "Slot is already booked.");
-    }
-
-    // Allow re-lock if already locked by this same user
-    if (
-      lockedUntil &&
-      lockedUntil.toMillis() > now.toMillis() &&
-      data.lockedBy !== uid
-    ) {
-      throw new HttpsError(
-        "already-exists",
-        "Slot is locked by another user. Try again in a few minutes."
-      );
-    }
-
     const expirySeconds = Math.floor((Date.now() + LOCK_DURATION_MS) / 1000);
+    const lockedUntilTs = new admin.firestore.Timestamp(expirySeconds, 0);
 
-    tx.update(slotRef, {
-      lockedBy: uid,
-      lockedUntil: new admin.firestore.Timestamp(expirySeconds, 0),
-    });
+    for (const slot of slotDocs) {
+      if (!slot.exists) {
+        throw new HttpsError("not-found", `Slot ${slot.id} not found.`);
+      }
+
+      const data = slot.data()!;
+      const lockedUntil = data.lockedUntil as admin.firestore.Timestamp | null;
+
+      if (data.isBooked) {
+        throw new HttpsError(
+          "already-exists",
+          "One or more slots are already booked."
+        );
+      }
+
+      // Allow re-lock if already locked by this same user
+      if (
+        lockedUntil &&
+        lockedUntil.toMillis() > now.toMillis() &&
+        data.lockedBy !== uid
+      ) {
+        throw new HttpsError(
+          "already-exists",
+          "One or more slots are locked by another user. Try again in a few minutes."
+        );
+      }
+    }
+
+    for (const ref of slotRefs) {
+      tx.update(ref, {
+        lockedBy: uid,
+        lockedUntil: lockedUntilTs,
+      });
+    }
 
     return { success: true, lockedUntilMs: expirySeconds * 1000 };
   });
 });
 
-// ── createBooking ─────────────────────────────────────────────────────────────
-// Called after a successful Razorpay payment.
-// 1. Verifies the Razorpay payment signature (prevents fake payment bypass).
-// 2. Confirms the slot is still locked by this user (prevents double booking).
-// 3. Creates the booking document and marks the slot as booked atomically.
+// ── createRazorpayOrder ────────────────────────────────────────────────────────
+// Creates a Razorpay order server-side. The client uses the returned orderId
+// to open the Razorpay payment sheet. Amount must be in paise (₹1 = 100 paise).
 //
-// The Razorpay secret is stored in Firebase Secret Manager — never in code.
+// Set secrets once:
+//   firebase functions:secrets:set RAZORPAY_KEY_ID
+//   firebase functions:secrets:set RAZORPAY_KEY_SECRET
+
+export const createRazorpayOrder = onCall(
+  { secrets: ["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET"] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be logged in.");
+    }
+
+    const { amountInPaise, receipt } = request.data as {
+      amountInPaise: number;
+      receipt: string;
+    };
+
+    if (!amountInPaise || amountInPaise < 100) {
+      throw new HttpsError("invalid-argument", "Invalid amount.");
+    }
+
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+    if (!keyId || !keySecret) {
+      throw new HttpsError("internal", "Payment configuration error.");
+    }
+
+    // Use Razorpay REST API directly — no SDK needed on Node 20 (native fetch)
+    const credentials = Buffer.from(`${keyId}:${keySecret}`).toString(
+      "base64"
+    );
+
+    const response = await fetch("https://api.razorpay.com/v1/orders", {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        amount: amountInPaise,
+        currency: "INR",
+        receipt: receipt.substring(0, 40), // Razorpay max 40 chars
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      console.error("Razorpay order creation failed:", err);
+      throw new HttpsError("internal", "Failed to create payment order.");
+    }
+
+    const order = (await response.json()) as {
+      id: string;
+      amount: number;
+      currency: string;
+    };
+
+    return { orderId: order.id, amount: order.amount, currency: order.currency };
+  }
+);
+
+// ── createBooking ─────────────────────────────────────────────────────────────
+// Called by the client after Razorpay fires EVENT_PAYMENT_SUCCESS.
+// 1. Verifies the Razorpay payment signature server-side — prevents fake payments.
+// 2. Confirms all slots are still locked by this user — prevents race conditions.
+// 3. Creates the booking document and marks all slots as booked atomically.
+//
+// The secret is stored in Firebase Secret Manager — never in code.
 // Set it once with: firebase functions:secrets:set RAZORPAY_KEY_SECRET
 
 export const createBooking = onCall(
@@ -94,7 +165,7 @@ export const createBooking = onCall(
       turfId,
       turfName,
       cityId,
-      slotId,
+      slotIds,
       slotDate,
       slotStartTime,
       slotEndTime,
@@ -108,7 +179,7 @@ export const createBooking = onCall(
       turfId: string;
       turfName: string;
       cityId: string;
-      slotId: string;
+      slotIds: string[];
       slotDate: string;
       slotStartTime: string;
       slotEndTime: string;
@@ -121,8 +192,8 @@ export const createBooking = onCall(
     };
 
     // ── Verify Razorpay signature ──────────────────────────────────────────
-    // Without this check, anyone could call this function with a fake paymentId
-    // and get a confirmed booking without paying.
+    // Without this, anyone could call this function with a fake paymentId
+    // and get a confirmed booking without actually paying.
     const secret = process.env.RAZORPAY_KEY_SECRET;
     if (!secret) {
       throw new HttpsError("internal", "Payment configuration error.");
@@ -142,42 +213,43 @@ export const createBooking = onCall(
 
     // ── Create booking atomically ──────────────────────────────────────────
     const uid = request.auth.uid;
-    const slotRef = db
-      .collection("turfs")
-      .doc(turfId)
-      .collection("slots")
-      .doc(slotId);
+
+    const slotRefs = slotIds.map((slotId) =>
+      db.collection("turfs").doc(turfId).collection("slots").doc(slotId)
+    );
     const bookingRef = db.collection("bookings").doc();
 
     return db.runTransaction(async (tx) => {
-      const slot = await tx.get(slotRef);
-
-      if (!slot.exists) {
-        throw new HttpsError("not-found", "Slot not found.");
-      }
-
-      const slotData = slot.data()!;
+      const slotDocs = await Promise.all(slotRefs.map((ref) => tx.get(ref)));
       const now = admin.firestore.Timestamp.now();
-      const lockedUntil =
-        slotData.lockedUntil as admin.firestore.Timestamp | null;
 
-      if (slotData.isBooked) {
-        throw new HttpsError(
-          "already-exists",
-          "Slot was just booked by someone else."
-        );
-      }
+      for (const slot of slotDocs) {
+        if (!slot.exists) {
+          throw new HttpsError("not-found", `Slot ${slot.id} not found.`);
+        }
 
-      // Slot must still be locked by this user — prevents race conditions
-      if (
-        !lockedUntil ||
-        lockedUntil.toMillis() < now.toMillis() ||
-        slotData.lockedBy !== uid
-      ) {
-        throw new HttpsError(
-          "failed-precondition",
-          "Slot lock expired. Please select the slot again."
-        );
+        const slotData = slot.data()!;
+        const lockedUntil =
+          slotData.lockedUntil as admin.firestore.Timestamp | null;
+
+        if (slotData.isBooked) {
+          throw new HttpsError(
+            "already-exists",
+            "A slot was just booked by someone else."
+          );
+        }
+
+        // Slot must still be locked by this user
+        if (
+          !lockedUntil ||
+          lockedUntil.toMillis() < now.toMillis() ||
+          slotData.lockedBy !== uid
+        ) {
+          throw new HttpsError(
+            "failed-precondition",
+            "Slot lock expired. Please select the slot again."
+          );
+        }
       }
 
       const refundWindowExpiry = new admin.firestore.Timestamp(
@@ -194,6 +266,7 @@ export const createBooking = onCall(
         slotDate,
         slotStartTime,
         slotEndTime,
+        slotIds,
         totalAmount,
         advancePaid,
         paymentId: razorpayPaymentId,
@@ -206,12 +279,14 @@ export const createBooking = onCall(
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      tx.update(slotRef, {
-        isBooked: true,
-        bookingId: bookingRef.id,
-        lockedBy: null,
-        lockedUntil: null,
-      });
+      for (const ref of slotRefs) {
+        tx.update(ref, {
+          isBooked: true,
+          bookingId: bookingRef.id,
+          lockedBy: null,
+          lockedUntil: null,
+        });
+      }
 
       return { bookingId: bookingRef.id };
     });

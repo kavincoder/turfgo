@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../core/constants.dart';
+import '../../models/slot.dart';
 import '../../models/turf.dart';
 import '../../providers/turf_provider.dart';
 import '../booking_confirmation/booking_confirmation_screen.dart';
@@ -109,19 +110,51 @@ class _SlotSelectionScreenState
 
   void _proceed() {
     if (_selectedSlotIndex == null) return;
-    final imageUrl =
-        widget.turf.photos.isNotEmpty ? widget.turf.photos[0] : '';
+
+    // Collect the actual Slot objects for the selected time range
+    final slotsData = ref
+            .read(slotsProvider(
+                (turfId: widget.turf.id, date: _formatDate(_selectedDate))))
+            .valueOrNull ??
+        [];
+
+    final selectedSlots = <Slot>[];
+    for (int i = 0; i < _duration; i++) {
+      final hour = _slotHours[_selectedSlotIndex! + i];
+      final startTime = _toStartTimeStr(hour);
+
+      Slot? match;
+      for (final s in slotsData) {
+        if (s.startTime == startTime && s.sport == _selectedSport) {
+          match = s;
+          break;
+        }
+      }
+
+      if (match == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Slot data unavailable. Please try again.'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      selectedSlots.add(match);
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => BookingConfirmationScreen(
-          turfName: widget.turf.name,
-          area: widget.turf.area,
-          imageUrl: imageUrl,
+          turf: widget.turf,
+          selectedSlots: selectedSlots,
           selectedDate: _selectedDate,
           slotLabel: _slotLabel,
           duration: _duration,
-          pricePerHour: widget.turf.pricePerHour,
+          sport: _selectedSport,
         ),
       ),
     );
