@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/otp_screen.dart';
+import '../screens/owner/owner_shell.dart';
 import '../screens/shell/main_shell.dart';
 import '../screens/splash/splash_screen.dart';
 
@@ -36,6 +37,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/home',
         builder: (context, state) => const MainShell(),
+      ),
+      GoRoute(
+        path: '/owner',
+        builder: (context, state) => const OwnerShell(),
+      ),
+      // Admin route — placeholder for future
+      GoRoute(
+        path: '/admin',
+        builder: (context, state) => const MainShell(), // TODO: AdminShell
       ),
     ],
   );

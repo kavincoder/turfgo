@@ -1,0 +1,473 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
+
+import '../../core/constants.dart';
+import '../../models/booking.dart';
+import '../../providers/owner_provider.dart';
+import '../../providers/user_provider.dart';
+
+class OwnerDashboardScreen extends ConsumerWidget {
+  const OwnerDashboardScreen({super.key});
+
+  String _todayStr() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  String _fmt(String time24) {
+    try {
+      final h = int.parse(time24.split(':')[0]);
+      final period = h < 12 ? 'AM' : 'PM';
+      final display = h == 0 ? 12 : h <= 12 ? h : h - 12;
+      return '$display:00 $period';
+    } catch (_) {
+      return time24;
+    }
+  }
+
+  String _sportEmoji(String sport) {
+    switch (sport.toLowerCase()) {
+      case 'football':
+        return '⚽';
+      case 'cricket':
+        return '🏏';
+      case 'badminton':
+        return '🏸';
+      default:
+        return '🏟️';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userAsync = ref.watch(currentUserProvider);
+    final bookingsAsync = ref.watch(ownerBookingsProvider);
+    final today = _todayStr();
+
+    final userName = userAsync.valueOrNull?.name.trim() ?? '';
+    final greeting = userName.isNotEmpty ? 'Hello, $userName!' : 'Hello!';
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: bookingsAsync.when(
+        loading: () => const _ShimmerDashboard(),
+        error: (_, __) =>
+            const Center(child: Text('Something went wrong')),
+        data: (allBookings) {
+          // Today's confirmed bookings
+          final todayBookings = allBookings
+              .where((b) =>
+                  b.slotDate == today &&
+                  b.status == BookingStatus.confirmed)
+              .toList();
+
+          // Today's earnings
+          final todayEarnings = todayBookings.fold<double>(
+              0, (sum, b) => sum + b.totalAmount);
+
+          // Upcoming bookings (today + future, confirmed)
+          final upcoming = allBookings
+              .where((b) =>
+                  b.status == BookingStatus.confirmed &&
+                  b.slotDate.compareTo(today) >= 0)
+              .toList();
+
+          // Total all-time earnings
+          final totalEarnings = allBookings
+              .where((b) => b.status == BookingStatus.confirmed)
+              .fold<double>(0, (sum, b) => sum + b.totalAmount);
+
+          return SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Header ──────────────────────────────────
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 24.h),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.vertical(
+                        bottom: Radius.circular(24.r),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          greeting,
+                          style: TextStyle(
+                            fontSize: 24.sp,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: AppTextStyles.bodyFont,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          DateFormat('EEEE, MMM d yyyy')
+                              .format(DateTime.now()),
+                          style: TextStyle(
+                            fontSize: 13.sp,
+                            fontFamily: AppTextStyles.bodyFont,
+                            color: Colors.white.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  SizedBox(height: 20.h),
+
+                  // ── Stat cards ──────────────────────────────
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _StatCard(
+                            icon: Icons.calendar_today_rounded,
+                            label: "Today's Bookings",
+                            value: '${todayBookings.length}',
+                            iconColor: AppColors.primary,
+                          ),
+                        ),
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: _StatCard(
+                            icon: Icons.currency_rupee_rounded,
+                            label: "Today's Earnings",
+                            value: '₹${todayEarnings.toInt()}',
+                            iconColor: const Color(0xFF059669),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  SizedBox(height: 12.h),
+
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _StatCard(
+                            icon: Icons.upcoming_rounded,
+                            label: 'Upcoming',
+                            value: '${upcoming.length}',
+                            iconColor: const Color(0xFF2563EB),
+                          ),
+                        ),
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: _StatCard(
+                            icon: Icons.account_balance_wallet_rounded,
+                            label: 'Total Earned',
+                            value: '₹${totalEarnings.toInt()}',
+                            iconColor: const Color(0xFF7C3AED),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  SizedBox(height: 28.h),
+
+                  // ── Upcoming bookings list ──────────────────
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    child: Text(
+                      'Upcoming Bookings',
+                      style: TextStyle(
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: AppTextStyles.bodyFont,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(height: 14.h),
+
+                  if (upcoming.isEmpty)
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 20.w, vertical: 40.h),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(Icons.event_available_rounded,
+                                size: 48.sp, color: AppColors.grey),
+                            SizedBox(height: 12.h),
+                            Text(
+                              'No upcoming bookings',
+                              style: TextStyle(
+                                fontSize: 14.sp,
+                                color: AppColors.textSecondary,
+                                fontFamily: AppTextStyles.bodyFont,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: EdgeInsets.symmetric(horizontal: 20.w),
+                      itemCount: upcoming.length > 10 ? 10 : upcoming.length,
+                      itemBuilder: (_, i) {
+                        final b = upcoming[i];
+                        final isToday = b.slotDate == today;
+                        return _UpcomingCard(
+                          booking: b,
+                          isToday: isToday,
+                          sportEmoji: _sportEmoji(b.sport),
+                          timeLabel:
+                              '${_fmt(b.slotStartTime)} – ${_fmt(b.slotEndTime)}',
+                        );
+                      },
+                    ),
+
+                  SizedBox(height: 24.h),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color iconColor;
+
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36.w,
+            height: 36.w,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10.r),
+            ),
+            child: Icon(icon, size: 18.sp, color: iconColor),
+          ),
+          SizedBox(height: 12.h),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 22.sp,
+              fontWeight: FontWeight.w700,
+              fontFamily: AppTextStyles.bodyFont,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          SizedBox(height: 2.h),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.sp,
+              color: AppColors.textSecondary,
+              fontFamily: AppTextStyles.bodyFont,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UpcomingCard extends StatelessWidget {
+  final Booking booking;
+  final bool isToday;
+  final String sportEmoji;
+  final String timeLabel;
+
+  const _UpcomingCard({
+    required this.booking,
+    required this.isToday,
+    required this.sportEmoji,
+    required this.timeLabel,
+  });
+
+  String get _dateLabel {
+    if (isToday) return 'Today';
+    try {
+      return DateFormat('EEE, d MMM')
+          .format(DateTime.parse(booking.slotDate));
+    } catch (_) {
+      return booking.slotDate;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 10.h),
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14.r),
+        border: isToday
+            ? Border.all(
+                color: AppColors.primary.withValues(alpha: 0.3), width: 1.5)
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Text(sportEmoji, style: TextStyle(fontSize: 28.sp)),
+          SizedBox(width: 14.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  booking.sport,
+                  style: TextStyle(
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: AppTextStyles.bodyFont,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                Row(
+                  children: [
+                    Icon(Icons.access_time_rounded,
+                        size: 12.sp, color: AppColors.textSecondary),
+                    SizedBox(width: 4.w),
+                    Text(
+                      '$_dateLabel · $timeLabel',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: AppColors.textSecondary,
+                        fontFamily: AppTextStyles.bodyFont,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '₹${booking.totalAmount.toInt()}',
+            style: TextStyle(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w700,
+              fontFamily: AppTextStyles.bodyFont,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShimmerDashboard extends StatelessWidget {
+  const _ShimmerDashboard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[200]!,
+      highlightColor: Colors.grey[100]!,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              height: 100.h,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(
+                    bottom: Radius.circular(24.r)),
+              ),
+            ),
+            SizedBox(height: 20.h),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 110.h,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16.r),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Container(
+                      height: 110.h,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16.r),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 24.h),
+            ...List.generate(
+              3,
+              (_) => Container(
+                margin: EdgeInsets.symmetric(
+                    horizontal: 20.w, vertical: 6.h),
+                height: 80.h,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14.r),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

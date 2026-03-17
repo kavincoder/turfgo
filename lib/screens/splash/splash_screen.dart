@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -15,13 +16,40 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Quick brand flash, then straight to login
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (mounted) {
-        final user = FirebaseAuth.instance.currentUser;
-        context.go(user != null ? '/home' : '/login');
+    Future.delayed(const Duration(milliseconds: 800), _routeByRole);
+  }
+
+  Future<void> _routeByRole() async {
+    if (!mounted) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      context.go('/login');
+      return;
+    }
+
+    // Fetch role from Firestore to decide where to land
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!mounted) return;
+
+      final role = doc.data()?['role'] ?? 'player';
+      switch (role) {
+        case 'owner':
+          context.go('/owner');
+        case 'admin':
+          context.go('/admin');
+        default:
+          context.go('/home');
       }
-    });
+    } catch (_) {
+      // Fallback to player home if Firestore read fails
+      if (mounted) context.go('/home');
+    }
   }
 
   @override

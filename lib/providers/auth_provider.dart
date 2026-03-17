@@ -35,11 +35,15 @@ class RouterNotifier extends ChangeNotifier {
 
     final isLoggedIn = authState.valueOrNull != null;
     final loc = state.matchedLocation;
-    final isAuthRoute =
-        loc == '/' || loc == '/login' || loc == '/otp';
+
+    // Splash handles its own role-based routing — don't interfere
+    if (loc == '/') return null;
+
+    final isAuthRoute = loc == '/login' || loc == '/otp';
 
     if (!isLoggedIn && !isAuthRoute) return '/login';
-    if (isLoggedIn && isAuthRoute) return '/home';
+    // Logged-in user on login/otp → send to splash for role routing
+    if (isLoggedIn && isAuthRoute) return '/';
     return null;
   }
 }
