@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../core/constants.dart';
+import '../../core/date_utils.dart';
 import '../../models/booking.dart';
 import '../../providers/booking_provider.dart';
 
@@ -13,15 +13,10 @@ class BookingsScreen extends ConsumerWidget {
 
   const BookingsScreen({super.key, required this.onExploreTurfs});
 
-  String _todayStr() {
-    final now = DateTime.now();
-    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bookingsAsync = ref.watch(bookingsStreamProvider);
-    final today = _todayStr();
+    final today = TurfDateUtils.todayString();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -40,8 +35,39 @@ class BookingsScreen extends ConsumerWidget {
       ),
       body: bookingsAsync.when(
         loading: () => const _ShimmerList(),
-        error: (_, __) =>
-            const Center(child: Text('Something went wrong')),
+        error: (e, _) => Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 32.w),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.wifi_off_rounded,
+                    size: 48.sp, color: AppColors.grey),
+                SizedBox(height: 16.h),
+                Text(
+                  'Could not load your bookings',
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: AppTextStyles.bodyFont,
+                    color: AppColors.textPrimary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8.h),
+                Text(
+                  'Check your internet connection and try again.',
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    color: AppColors.textSecondary,
+                    fontFamily: AppTextStyles.bodyFont,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
         data: (bookings) {
           final upcoming = bookings
               .where((b) =>
@@ -92,38 +118,9 @@ class _BookingCard extends StatelessWidget {
     }
   }
 
-  String get _formattedDate {
-    try {
-      return DateFormat('EEE, d MMM yyyy')
-          .format(DateTime.parse(booking.slotDate));
-    } catch (_) {
-      return booking.slotDate;
-    }
-  }
+  String get _formattedDate => TurfDateUtils.formatDate(booking.slotDate);
 
-  String _fmt(String time24) {
-    try {
-      final h = int.parse(time24.split(':')[0]);
-      final period = h < 12 ? 'AM' : 'PM';
-      final display = h == 0 ? 12 : h <= 12 ? h : h - 12;
-      return '$display:00 $period';
-    } catch (_) {
-      return time24;
-    }
-  }
-
-  String get _sportEmoji {
-    switch (booking.sport.toLowerCase()) {
-      case 'football':
-        return '⚽';
-      case 'cricket':
-        return '🏏';
-      case 'badminton':
-        return '🏸';
-      default:
-        return '🏟️';
-    }
-  }
+  String get _sportEmoji => TurfDateUtils.sportEmoji(booking.sport);
 
   @override
   Widget build(BuildContext context) {
@@ -221,7 +218,7 @@ class _BookingCard extends StatelessWidget {
                           _InfoChip(
                             icon: Icons.access_time_rounded,
                             label:
-                                '${_fmt(booking.slotStartTime)} – ${_fmt(booking.slotEndTime)}',
+                                TurfDateUtils.formatTimeRange(booking.slotStartTime, booking.slotEndTime),
                           ),
                         ],
                       ),

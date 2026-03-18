@@ -9,10 +9,11 @@ import 'package:shimmer/shimmer.dart';
 import '../../core/constants.dart';
 import '../../models/turf.dart';
 import '../../providers/turf_provider.dart';
+import '../../providers/user_provider.dart';
 import '../turf_detail/turf_detail_screen.dart';
 
-const _sports = ['All', 'Football', 'Cricket', 'Tennis', 'Badminton'];
-const _cityId = 'city_madurai';
+/// Fallback city when user has no cityId set or location cannot be determined.
+const _kDefaultCityId = 'city_madurai';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -24,6 +25,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _locationText = 'Detecting...';
   String _selectedSport = 'All';
+  String _searchQuery = '';
   final _searchController = TextEditingController();
 
   @override
@@ -80,19 +82,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   List<Turf> _filter(List<Turf> turfs) {
-    if (_selectedSport == 'All') return turfs;
-    return turfs.where((t) => t.sports.contains(_selectedSport)).toList();
+    var result = turfs;
+    // Filter by selected sport
+    if (_selectedSport != 'All') {
+      result = result.where((t) => t.sports.contains(_selectedSport)).toList();
+    }
+    // Filter by search query (name or area, case-insensitive)
+    final q = _searchQuery.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      result = result
+          .where((t) =>
+              t.name.toLowerCase().contains(q) ||
+              t.area.toLowerCase().contains(q))
+          .toList();
+    }
+    return result;
   }
 
   @override
   Widget build(BuildContext context) {
     final topPad = MediaQuery.of(context).padding.top;
-    final turfsAsync = ref.watch(turfsProvider(_cityId));
+    // Use city from user profile; fall back to default if not yet loaded
+    final userAsync = ref.watch(currentUserProvider);
+    final cityId = userAsync.valueOrNull?.cityId.isNotEmpty == true
+        ? userAsync.valueOrNull!.cityId
+        : _kDefaultCityId;
+    final turfsAsync = ref.watch(turfsProvider(cityId));
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async => ref.invalidate(turfsProvider(cityId)),
+        child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           // Green header
           SliverToBoxAdapter(
@@ -144,10 +167,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         fontFamily: AppTextStyles.bodyFont,
                         color: AppColors.textPrimary,
                       ),
+                      onChanged: (value) =>
+                          setState(() => _searchQuery = value),
                       decoration: InputDecoration(
-                        hintText: 'Find a turf near you',
+                        hintText: 'Search by turf name or area',
                         prefixIcon: Icon(Icons.search,
                             color: AppColors.grey, size: 22.sp),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? GestureDetector(
+                                onTap: () {
+                                  _searchController.clear();
+                                  setState(() => _searchQuery = '');
+                                },
+                                child: Icon(Icons.close,
+                                    color: AppColors.grey, size: 20.sp),
+                              )
+                            : null,
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
@@ -175,7 +210,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: EdgeInsets.symmetric(horizontal: 20.w),
                 child: Row(
-                  children: _sports.map((sport) {
+                  children: Sports.filterList.map((sport) {
                     final isSelected = sport == _selectedSport;
                     return Padding(
                       padding: EdgeInsets.only(right: 10.w),
@@ -250,7 +285,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 padding: EdgeInsets.only(top: 40.h),
                 child: Center(
                   child: Text(
-                    'Could not load turfs. Pull to retry.',
+                    'Could not load turfs. Pull down to retry.',
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 15.sp,
@@ -294,6 +329,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
           SliverPadding(padding: EdgeInsets.only(bottom: 8.h)),
         ],
+      ),
       ),
     );
   }

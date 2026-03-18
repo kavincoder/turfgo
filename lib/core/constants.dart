@@ -95,7 +95,20 @@ class Sports {
   static const String football = 'Football';
   static const String cricket = 'Cricket';
   static const String badminton = 'Badminton';
+  static const String tennis = 'Tennis';
 
+  /// Sports available in phase 1 launch
   static const List<String> phase1 = [football, cricket];
-  static const List<String> all = [football, cricket, badminton];
+
+  /// All supported sports (for turf registration)
+  static const List<String> all = [football, cricket, badminton, tennis];
+
+  /// Sports filter chips shown on home screen — includes 'All' as first option
+  static const List<String> filterList = [
+    'All',
+    football,
+    cricket,
+    badminton,
+    tennis,
+  ];
 }

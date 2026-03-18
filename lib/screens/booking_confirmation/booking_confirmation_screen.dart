@@ -101,6 +101,7 @@ class _BookingConfirmationScreenState
       final orderData = await _paymentRepo.createRazorpayOrder(
         amountInPaise: _totalInPaise,
         receipt: receipt,
+        turfId: widget.turf.id,
       );
       _pendingOrderId = orderData['orderId'] as String;
 
@@ -149,7 +150,6 @@ class _BookingConfirmationScreenState
         slotEndTime: _slotEndTime,
         sport: widget.sport,
         totalAmount: _totalAmount,
-        advancePaid: _totalAmount,
         razorpayPaymentId: response.paymentId ?? '',
         razorpayOrderId: response.orderId ?? _pendingOrderId ?? '',
         razorpaySignature: response.signature ?? '',

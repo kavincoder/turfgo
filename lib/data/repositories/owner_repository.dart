@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../models/booking.dart';
 import '../../models/turf.dart';
@@ -33,6 +34,9 @@ class OwnerRepository {
           });
           return list;
         })
-        .handleError((_) => <Booking>[]);
+        .handleError((Object e, StackTrace st) {
+          debugPrint('[OwnerRepository] getOwnerBookingsStream error: $e\n$st');
+          throw e;
+        });
   }
 }

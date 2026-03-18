@@ -6,6 +6,9 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../core/constants.dart';
 import '../../providers/admin_provider.dart';
+import 'admin_bookings_detail_screen.dart';
+import 'admin_revenue_screen.dart';
+import 'admin_turfs_detail_screen.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -113,20 +116,38 @@ class AdminDashboardScreen extends ConsumerWidget {
                     child: Row(
                       children: [
                         Expanded(
-                          child: _StatCard(
-                            icon: Icons.calendar_today_rounded,
-                            label: 'Bookings',
-                            value: '${todayBookings.length}',
-                            iconColor: AppColors.primary,
+                          child: GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const AdminBookingsDetailScreen(),
+                              ),
+                            ),
+                            child: _StatCard(
+                              icon: Icons.calendar_today_rounded,
+                              label: 'Bookings',
+                              value: '${todayBookings.length}',
+                              iconColor: AppColors.primary,
+                            ),
                           ),
                         ),
                         SizedBox(width: 12.w),
                         Expanded(
-                          child: _StatCard(
-                            icon: Icons.currency_rupee_rounded,
-                            label: 'Revenue',
-                            value: '₹${todayRevenue.toInt()}',
-                            iconColor: const Color(0xFF059669),
+                          child: GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const AdminRevenueScreen(),
+                              ),
+                            ),
+                            child: _StatCard(
+                              icon: Icons.currency_rupee_rounded,
+                              label: 'Revenue',
+                              value: '₹${todayRevenue.toInt()}',
+                              iconColor: const Color(0xFF059669),
+                            ),
                           ),
                         ),
                       ],
@@ -154,20 +175,38 @@ class AdminDashboardScreen extends ConsumerWidget {
                     child: Row(
                       children: [
                         Expanded(
-                          child: _StatCard(
-                            icon: Icons.account_balance_wallet_rounded,
-                            label: 'Total Revenue',
-                            value: '₹${totalRevenue.toInt()}',
-                            iconColor: const Color(0xFF7C3AED),
+                          child: GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const AdminRevenueScreen(),
+                              ),
+                            ),
+                            child: _StatCard(
+                              icon: Icons.account_balance_wallet_rounded,
+                              label: 'Total Revenue',
+                              value: '₹${totalRevenue.toInt()}',
+                              iconColor: const Color(0xFF7C3AED),
+                            ),
                           ),
                         ),
                         SizedBox(width: 12.w),
                         Expanded(
-                          child: _StatCard(
-                            icon: Icons.receipt_long_rounded,
-                            label: 'Total Bookings',
-                            value: '${confirmedBookings.length}',
-                            iconColor: const Color(0xFF2563EB),
+                          child: GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const AdminBookingsDetailScreen(),
+                              ),
+                            ),
+                            child: _StatCard(
+                              icon: Icons.receipt_long_rounded,
+                              label: 'Total Bookings',
+                              value: '${confirmedBookings.length}',
+                              iconColor: const Color(0xFF2563EB),
+                            ),
                           ),
                         ),
                       ],
@@ -179,11 +218,20 @@ class AdminDashboardScreen extends ConsumerWidget {
                     child: Row(
                       children: [
                         Expanded(
-                          child: _StatCard(
-                            icon: Icons.stadium_rounded,
-                            label: 'Active Turfs',
-                            value: '$activeTurfs / ${turfs.length}',
-                            iconColor: const Color(0xFFD97706),
+                          child: GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const AdminTurfsDetailScreen(),
+                              ),
+                            ),
+                            child: _StatCard(
+                              icon: Icons.stadium_rounded,
+                              label: 'Active Turfs',
+                              value: '$activeTurfs / ${turfs.length}',
+                              iconColor: const Color(0xFFD97706),
+                            ),
                           ),
                         ),
                         SizedBox(width: 12.w),

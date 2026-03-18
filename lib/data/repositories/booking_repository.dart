@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../../models/booking.dart';
 
 class BookingRepository {
@@ -14,6 +15,10 @@ class BookingRepository {
           list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return list;
         })
-        .handleError((_) => <Booking>[]);
+        .handleError((Object e, StackTrace st) {
+          debugPrint('[BookingRepository] getBookingsStream error: $e\n$st');
+          // Re-throw so the StreamProvider surfaces an error state to the UI
+          throw e;
+        });
   }
 }

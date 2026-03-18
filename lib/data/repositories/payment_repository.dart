@@ -24,20 +24,25 @@ class PaymentRepository {
 
   /// Creates a Razorpay order server-side and returns the orderId.
   /// Amount must be in paise (₹100 = 10000 paise).
+  /// turfId is stored server-side so createBooking can verify the payment
+  /// was for the correct turf, preventing cross-turf payment reuse.
   Future<Map<String, dynamic>> createRazorpayOrder({
     required int amountInPaise,
     required String receipt,
+    required String turfId,
   }) async {
     final callable = _functions.httpsCallable('createRazorpayOrder');
     final result = await callable.call({
       'amountInPaise': amountInPaise,
       'receipt': receipt,
+      'turfId': turfId,
     });
     return Map<String, dynamic>.from(result.data as Map);
   }
 
   /// Verifies Razorpay signature server-side and creates the booking atomically.
   /// Only call this after receiving EVENT_PAYMENT_SUCCESS from Razorpay.
+  /// advancePaid is derived server-side from the stored order — not passed by client.
   /// Returns the newly created bookingId.
   Future<String> createBooking({
     required String turfId,
@@ -49,7 +54,6 @@ class PaymentRepository {
     required String slotEndTime,
     required String sport,
     required int totalAmount,
-    required int advancePaid,
     required String razorpayPaymentId,
     required String razorpayOrderId,
     required String razorpaySignature,
@@ -65,7 +69,6 @@ class PaymentRepository {
       'slotEndTime': slotEndTime,
       'sport': sport,
       'totalAmount': totalAmount,
-      'advancePaid': advancePaid,
       'razorpayPaymentId': razorpayPaymentId,
       'razorpayOrderId': razorpayOrderId,
       'razorpaySignature': razorpaySignature,

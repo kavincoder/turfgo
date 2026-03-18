@@ -1,52 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/intl.dart';
 import '../../core/constants.dart';
+import '../../models/review.dart';
 import '../../models/turf.dart';
+import '../../providers/review_provider.dart';
 import '../slot_selection/slot_selection_screen.dart';
-
-class _Review {
-  final String name;
-  final String initials;
-  final double rating;
-  final String comment;
-  final String date;
-
-  const _Review({
-    required this.name,
-    required this.initials,
-    required this.rating,
-    required this.comment,
-    required this.date,
-  });
-}
-
-const _mockReviews = [
-  _Review(
-    name: 'Arjun Mehta',
-    initials: 'AM',
-    rating: 5.0,
-    comment:
-        'Amazing turf! Well maintained and great floodlights. Will definitely book again.',
-    date: 'Mar 10, 2026',
-  ),
-  _Review(
-    name: 'Priya Sharma',
-    initials: 'PS',
-    rating: 4.5,
-    comment:
-        'Good surface and facilities. Parking was a bit cramped but overall great experience.',
-    date: 'Mar 5, 2026',
-  ),
-  _Review(
-    name: 'Rahul Nair',
-    initials: 'RN',
-    rating: 4.0,
-    comment:
-        'Decent place to play. Staff was helpful and the changing rooms were clean.',
-    date: 'Feb 28, 2026',
-  ),
-];
 
 const _amenityIcons = {
   'Parking': Icons.local_parking_rounded,
@@ -57,13 +18,13 @@ const _amenityIcons = {
   'Cafeteria': Icons.restaurant_rounded,
 };
 
-class TurfDetailScreen extends StatelessWidget {
+class TurfDetailScreen extends ConsumerWidget {
   final Turf turf;
 
   const TurfDetailScreen({super.key, required this.turf});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final topPad = MediaQuery.of(context).padding.top;
     final bottomPad = MediaQuery.of(context).padding.bottom;
     final imageUrl = turf.photos.isNotEmpty ? turf.photos[0] : '';
@@ -380,8 +341,40 @@ class TurfDetailScreen extends StatelessWidget {
                         ],
                       ),
                       SizedBox(height: 16.h),
-                      ..._mockReviews
-                          .map((review) => _ReviewTile(review: review)),
+                      // Real reviews from Firestore
+                      ref.watch(turfReviewsProvider(turf.id)).when(
+                        loading: () => const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16),
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                        error: (_, __) => Text(
+                          'Could not load reviews.',
+                          style: TextStyle(
+                            fontSize: 13.sp,
+                            color: AppColors.textSecondary,
+                            fontFamily: AppTextStyles.bodyFont,
+                          ),
+                        ),
+                        data: (reviews) {
+                          if (reviews.isEmpty) {
+                            return Text(
+                              'No reviews yet. Be the first to review!',
+                              style: TextStyle(
+                                fontSize: 13.sp,
+                                color: AppColors.textSecondary,
+                                fontFamily: AppTextStyles.bodyFont,
+                              ),
+                            );
+                          }
+                          return Column(
+                            children: reviews
+                                .map((r) => _ReviewTile(review: r))
+                                .toList(),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -454,8 +447,23 @@ class TurfDetailScreen extends StatelessWidget {
 }
 
 class _ReviewTile extends StatelessWidget {
-  final _Review review;
+  final Review review;
   const _ReviewTile({required this.review});
+
+  String get _initials {
+    // Use first two chars of userId as initials since we don't store username in review
+    return review.userId.length >= 2
+        ? review.userId.substring(0, 2).toUpperCase()
+        : review.userId.toUpperCase();
+  }
+
+  String get _formattedDate {
+    try {
+      return DateFormat('MMM d, yyyy').format(review.createdAt);
+    } catch (_) {
+      return '';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -470,7 +478,7 @@ class _ReviewTile extends StatelessWidget {
                 radius: 20.r,
                 backgroundColor: AppColors.primaryLight,
                 child: Text(
-                  review.initials,
+                  _initials,
                   style: TextStyle(
                     fontSize: 13.sp,
                     fontWeight: FontWeight.w700,
@@ -484,21 +492,34 @@ class _ReviewTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      review.name,
-                      style: TextStyle(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: AppTextStyles.bodyFont,
-                        color: AppColors.textPrimary,
-                      ),
+                    Row(
+                      children: [
+                        if (review.isVerified)
+                          Padding(
+                            padding: EdgeInsets.only(right: 6.w),
+                            child: Icon(
+                              Icons.verified_rounded,
+                              size: 14.sp,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        Text(
+                          'Verified Booking',
+                          style: TextStyle(
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: AppTextStyles.bodyFont,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
                     ),
                     SizedBox(height: 2.h),
                     Row(
                       children: [
                         ...List.generate(5, (i) {
                           return Icon(
-                            i < review.rating.floor()
+                            i < review.rating
                                 ? Icons.star_rounded
                                 : Icons.star_outline_rounded,
                             size: 14.sp,
@@ -507,7 +528,7 @@ class _ReviewTile extends StatelessWidget {
                         }),
                         SizedBox(width: 6.w),
                         Text(
-                          review.date,
+                          _formattedDate,
                           style: TextStyle(
                             fontSize: 11.sp,
                             color: AppColors.grey,

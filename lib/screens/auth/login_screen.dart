@@ -25,10 +25,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  /// Valid Indian mobile: 10 digits, starts with 6-9
+  bool _isValidPhone(String phone) {
+    return RegExp(r'^[6-9]\d{9}$').hasMatch(phone);
+  }
+
   Future<void> _sendOtp() async {
     final phone = _phoneController.text.trim();
-    if (phone.length != 10) {
-      setState(() => _error = 'Enter a valid 10-digit mobile number');
+    if (!_isValidPhone(phone)) {
+      setState(() => _error = 'Enter a valid 10-digit Indian mobile number');
       return;
     }
 
