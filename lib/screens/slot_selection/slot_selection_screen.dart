@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../core/constants.dart';
+import '../../core/date_utils.dart';
 import '../../models/slot.dart';
 import '../../models/turf.dart';
 import '../../providers/turf_provider.dart';
@@ -47,9 +48,6 @@ class _SlotSelectionScreenState
   }
 
   int _parseHour(String time) => int.parse(time.split(':')[0]);
-
-  String _formatDate(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   bool _isToday(DateTime date) {
     final now = DateTime.now();
@@ -114,7 +112,7 @@ class _SlotSelectionScreenState
     // Collect the actual Slot objects for the selected time range
     final slotsData = ref
             .read(slotsProvider(
-                (turfId: widget.turf.id, date: _formatDate(_selectedDate))))
+                (turfId: widget.turf.id, date: TurfDateUtils.toDateString(_selectedDate))))
             .valueOrNull ??
         [];
 
@@ -163,7 +161,7 @@ class _SlotSelectionScreenState
   @override
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
-    final dateStr = _formatDate(_selectedDate);
+    final dateStr = TurfDateUtils.toDateString(_selectedDate);
     final slotsAsync = ref.watch(
       slotsProvider((turfId: widget.turf.id, date: dateStr)),
     );

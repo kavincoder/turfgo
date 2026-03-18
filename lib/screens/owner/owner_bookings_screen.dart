@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../core/constants.dart';
+import '../../core/date_utils.dart';
 import '../../providers/owner_provider.dart';
 
 class OwnerBookingsScreen extends ConsumerStatefulWidget {
@@ -29,36 +30,11 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen> {
     _selectedDate = _dates[0];
   }
 
-  String _dateKey(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  String _dateKey(DateTime d) => TurfDateUtils.toDateString(d);
 
   bool _isToday(DateTime d) {
     final now = DateTime.now();
     return d.year == now.year && d.month == now.month && d.day == now.day;
-  }
-
-  String _fmt(String time24) {
-    try {
-      final h = int.parse(time24.split(':')[0]);
-      final period = h < 12 ? 'AM' : 'PM';
-      final display = h == 0 ? 12 : h <= 12 ? h : h - 12;
-      return '$display:00 $period';
-    } catch (_) {
-      return time24;
-    }
-  }
-
-  String _sportEmoji(String sport) {
-    switch (sport.toLowerCase()) {
-      case 'football':
-        return '⚽';
-      case 'cricket':
-        return '🏏';
-      case 'badminton':
-        return '🏸';
-      default:
-        return '🏟️';
-    }
   }
 
   Color _statusColor(String status) {
@@ -272,7 +248,7 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen> {
                             ),
                             child: Row(
                               children: [
-                                Text(_sportEmoji(b.sport),
+                                Text(TurfDateUtils.sportEmoji(b.sport),
                                     style: TextStyle(fontSize: 28.sp)),
                                 SizedBox(width: 14.w),
                                 Expanded(
@@ -326,7 +302,7 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen> {
                                                   AppColors.textSecondary),
                                           SizedBox(width: 4.w),
                                           Text(
-                                            '${_fmt(b.slotStartTime)} – ${_fmt(b.slotEndTime)}',
+                                            TurfDateUtils.formatTimeRange(b.slotStartTime, b.slotEndTime),
                                             style: TextStyle(
                                               fontSize: 12.sp,
                                               color:

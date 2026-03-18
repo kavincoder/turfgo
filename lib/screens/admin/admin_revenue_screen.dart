@@ -64,7 +64,9 @@ class AdminRevenueScreen extends ConsumerWidget {
                 dailyRevenue[dayKey] =
                     dailyRevenue[dayKey]! + b.totalAmount;
               }
-            } catch (_) {}
+            } catch (e, st) {
+              debugPrint('[AdminRevenueScreen] date parse error: $e\n$st');
+            }
           }
 
           final sortedDays = dailyRevenue.keys.toList()..sort();

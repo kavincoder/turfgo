@@ -7,10 +7,10 @@ import 'package:shimmer/shimmer.dart';
 import '../../core/constants.dart';
 import '../../models/turf.dart';
 import '../../providers/turf_provider.dart';
+import '../../providers/user_provider.dart';
 import '../turf_detail/turf_detail_screen.dart';
 
-const _sports = ['All', 'Football', 'Cricket', 'Tennis', 'Badminton'];
-const _cityId = 'city_madurai';
+const _kDefaultCityId = 'city_madurai';
 
 class ExploreScreen extends ConsumerStatefulWidget {
   const ExploreScreen({super.key});
@@ -43,7 +43,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final turfsAsync = ref.watch(turfsProvider(_cityId));
+    final cityId = ref.watch(currentUserProvider).valueOrNull?.cityId ??
+        _kDefaultCityId;
+    final turfsAsync = ref.watch(turfsProvider(cityId));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -113,7 +115,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: _sports.map((sport) {
+                    children: Sports.filterList.map((sport) {
                       final isSelected = sport == _selectedSport;
                       return Padding(
                         padding: EdgeInsets.only(right: 8.w),

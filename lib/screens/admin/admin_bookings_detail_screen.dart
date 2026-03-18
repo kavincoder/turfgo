@@ -72,7 +72,9 @@ class AdminBookingsDetailScreen extends ConsumerWidget {
               if (dailyCounts.containsKey(dayKey)) {
                 dailyCounts[dayKey] = dailyCounts[dayKey]! + 1;
               }
-            } catch (_) {}
+            } catch (e, st) {
+              debugPrint('[AdminBookingsDetailScreen] date parse error: $e\n$st');
+            }
           }
 
           final sortedDays = dailyCounts.keys.toList()..sort();

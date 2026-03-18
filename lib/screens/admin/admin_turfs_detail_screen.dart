@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/constants.dart';
+import '../../core/date_utils.dart';
 import '../../models/turf.dart';
 import '../../providers/admin_provider.dart';
 
@@ -130,7 +131,7 @@ class AdminTurfsDetailScreen extends ConsumerWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                _sportEmoji(e.key),
+                                TurfDateUtils.sportEmoji(e.key),
                                 style: TextStyle(fontSize: 18.sp),
                               ),
                               SizedBox(width: 8.w),
@@ -219,20 +220,6 @@ class AdminTurfsDetailScreen extends ConsumerWidget {
     );
   }
 
-  static String _sportEmoji(String sport) {
-    switch (sport.toLowerCase()) {
-      case 'football':
-        return '⚽';
-      case 'cricket':
-        return '🏏';
-      case 'badminton':
-        return '🏸';
-      case 'tennis':
-        return '🎾';
-      default:
-        return '🏟️';
-    }
-  }
 }
 
 class _CountCard extends StatelessWidget {
@@ -399,7 +386,7 @@ class _TurfItem extends StatelessWidget {
                     ...turf.sports.map((s) => Padding(
                           padding: EdgeInsets.only(left: 4.w),
                           child: Text(
-                            _sportEmoji(s),
+                            TurfDateUtils.sportEmoji(s),
                             style: TextStyle(fontSize: 14.sp),
                           ),
                         )),
@@ -426,18 +413,4 @@ class _TurfItem extends StatelessWidget {
     );
   }
 
-  static String _sportEmoji(String sport) {
-    switch (sport.toLowerCase()) {
-      case 'football':
-        return '⚽';
-      case 'cricket':
-        return '🏏';
-      case 'badminton':
-        return '🏸';
-      case 'tennis':
-        return '🎾';
-      default:
-        return '🏟️';
-    }
-  }
 }

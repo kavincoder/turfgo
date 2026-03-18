@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../core/constants.dart';
+import '../../core/date_utils.dart';
 import '../../providers/admin_provider.dart';
 import 'admin_bookings_detail_screen.dart';
 import 'admin_revenue_screen.dart';
@@ -13,17 +13,12 @@ import 'admin_turfs_detail_screen.dart';
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
 
-  String _todayStr() {
-    final now = DateTime.now();
-    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bookingsAsync = ref.watch(allBookingsStreamProvider);
     final turfsAsync = ref.watch(allTurfsStreamProvider);
     final usersAsync = ref.watch(allUsersStreamProvider);
-    final today = _todayStr();
+    final today = TurfDateUtils.todayString();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -83,8 +78,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                         ),
                         SizedBox(height: 4.h),
                         Text(
-                          DateFormat('EEEE, MMM d yyyy')
-                              .format(DateTime.now()),
+                          TurfDateUtils.formatDateLong(TurfDateUtils.todayString()),
                           style: TextStyle(
                             fontSize: 13.sp,
                             fontFamily: AppTextStyles.bodyFont,

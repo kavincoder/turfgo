@@ -39,9 +39,9 @@ class _SplashScreenState extends State<SplashScreen> {
 
       final role = doc.data()?['role'] ?? 'player';
       switch (role) {
-        case 'owner':
+        case UserRole.owner:
           context.go('/owner');
-        case 'admin':
+        case UserRole.admin:
           context.go('/admin');
         default:
           context.go('/home');

@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../core/constants.dart';
+import '../../core/date_utils.dart';
 import '../../models/turf.dart';
 import '../../providers/owner_provider.dart';
 
@@ -93,17 +94,6 @@ class _TurfDetails extends StatelessWidget {
   final IconData Function(String) amenityIcon;
 
   const _TurfDetails({required this.turf, required this.amenityIcon});
-
-  String _formatHour(String time) {
-    try {
-      final h = int.parse(time.split(':')[0]);
-      final period = h < 12 ? 'AM' : 'PM';
-      final display = h == 0 ? 12 : h <= 12 ? h : h - 12;
-      return '$display:00 $period';
-    } catch (_) {
-      return time;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -219,7 +209,7 @@ class _TurfDetails extends StatelessWidget {
                         icon: Icons.schedule_rounded,
                         label: 'Hours',
                         value:
-                            '${_formatHour(turf.openTime)} – ${_formatHour(turf.closeTime)}',
+                            '${TurfDateUtils.formatHour(turf.openTime)} – ${TurfDateUtils.formatHour(turf.closeTime)}',
                       ),
                     ),
                     SizedBox(width: 10.w),
