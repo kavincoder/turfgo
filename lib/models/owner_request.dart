@@ -1,4 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+
+import '../core/constants.dart';
 
 class OwnerRequest {
   final String id;
@@ -93,4 +96,24 @@ class RequestStatus {
   static const String pending = 'pending';
   static const String approved = 'approved';
   static const String rejected = 'rejected';
+
+  /// Badge / chip colour for a given request status.
+  static Color color(String status) {
+    switch (status) {
+      case pending:   return AppColors.warning;
+      case approved:  return AppColors.primary;
+      case rejected:  return AppColors.error;
+      default:        return AppColors.grey;
+    }
+  }
+
+  /// Human-readable label for a given request status.
+  static String label(String status) {
+    switch (status) {
+      case pending:   return 'Pending';
+      case approved:  return 'Approved';
+      case rejected:  return 'Rejected';
+      default:        return status;
+    }
+  }
 }

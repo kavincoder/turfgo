@@ -66,7 +66,7 @@ class AdminTurfsDetailScreen extends ConsumerWidget {
                         child: _CountCard(
                           label: 'Total Turfs',
                           value: '${turfs.length}',
-                          color: const Color(0xFFD97706),
+                          color: AppColors.amber,
                         ),
                       ),
                       SizedBox(width: 12.w),
@@ -359,7 +359,7 @@ class _TurfItem extends StatelessWidget {
                 Row(
                   children: [
                     Icon(Icons.star_rounded,
-                        size: 13.sp, color: const Color(0xFFF59E0B)),
+                        size: 13.sp, color: AppColors.warning),
                     SizedBox(width: 3.w),
                     Text(
                       turf.rating.toStringAsFixed(1),

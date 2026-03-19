@@ -287,7 +287,7 @@ class _BookingConfirmationScreenState
                             placeholder: (_, __) => Container(
                               width: 100.w,
                               height: 90.h,
-                              color: const Color(0xFF1B4332),
+                              color: AppColors.primaryDark,
                               child: Icon(Icons.sports_soccer,
                                   size: 28.sp,
                                   color: Colors.white.withValues(alpha: 0.3)),
@@ -295,7 +295,7 @@ class _BookingConfirmationScreenState
                             errorWidget: (_, __, ___) => Container(
                               width: 100.w,
                               height: 90.h,
-                              color: const Color(0xFF1B4332),
+                              color: AppColors.primaryDark,
                               child: Icon(Icons.sports,
                                   size: 28.sp,
                                   color: Colors.white.withValues(alpha: 0.3)),

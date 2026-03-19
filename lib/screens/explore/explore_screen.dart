@@ -304,7 +304,7 @@ class _ExploreTurfCard extends StatelessWidget {
                         Row(
                           children: [
                             Icon(Icons.star_rounded,
-                                color: const Color(0xFFF59E0B),
+                                color: AppColors.warning,
                                 size: 14.sp),
                             SizedBox(width: 2.w),
                             Text(
@@ -383,7 +383,7 @@ class _ExploreTurfCard extends StatelessWidget {
   Widget _placeholder() => Container(
         width: 110.w,
         height: 110.h,
-        color: const Color(0xFF1B4332),
+        color: AppColors.primaryDark,
         child: Icon(Icons.sports_soccer,
             size: 28.sp,
             color: Colors.white.withValues(alpha: 0.25)),

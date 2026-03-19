@@ -37,34 +37,6 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen> {
     return d.year == now.year && d.month == now.month && d.day == now.day;
   }
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case BookingStatus.confirmed:
-        return AppColors.primary;
-      case BookingStatus.pending:
-        return AppColors.warning;
-      case BookingStatus.cancelled:
-        return AppColors.error;
-      default:
-        return AppColors.grey;
-    }
-  }
-
-  String _statusLabel(String status) {
-    switch (status) {
-      case BookingStatus.confirmed:
-        return 'Confirmed';
-      case BookingStatus.pending:
-        return 'Pending';
-      case BookingStatus.cancelled:
-        return 'Cancelled';
-      case BookingStatus.completed:
-        return 'Completed';
-      default:
-        return status;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final bookingsAsync = ref.watch(ownerBookingsProvider);
@@ -274,20 +246,20 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen> {
                                                 horizontal: 8.w,
                                                 vertical: 2.h),
                                             decoration: BoxDecoration(
-                                              color: _statusColor(b.status)
+                                              color: BookingStatus.color(b.status)
                                                   .withValues(alpha: 0.12),
                                               borderRadius:
                                                   BorderRadius.circular(8.r),
                                             ),
                                             child: Text(
-                                              _statusLabel(b.status),
+                                              BookingStatus.label(b.status),
                                               style: TextStyle(
                                                 fontSize: 10.sp,
                                                 fontWeight: FontWeight.w600,
                                                 fontFamily:
                                                     AppTextStyles.bodyFont,
                                                 color:
-                                                    _statusColor(b.status),
+                                                    BookingStatus.color(b.status),
                                               ),
                                             ),
                                           ),

@@ -111,32 +111,6 @@ class _RequestCard extends ConsumerStatefulWidget {
 class _RequestCardState extends ConsumerState<_RequestCard> {
   bool _loading = false;
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case RequestStatus.pending:
-        return AppColors.warning;
-      case RequestStatus.approved:
-        return AppColors.primary;
-      case RequestStatus.rejected:
-        return AppColors.error;
-      default:
-        return AppColors.grey;
-    }
-  }
-
-  String _statusLabel(String status) {
-    switch (status) {
-      case RequestStatus.pending:
-        return 'Pending';
-      case RequestStatus.approved:
-        return 'Approved';
-      case RequestStatus.rejected:
-        return 'Rejected';
-      default:
-        return status;
-    }
-  }
-
   Future<void> _approve() async {
     setState(() => _loading = true);
     try {
@@ -186,7 +160,7 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
   @override
   Widget build(BuildContext context) {
     final r = widget.request;
-    final color = _statusColor(r.status);
+    final color = RequestStatus.color(r.status);
     final isPending = r.status == RequestStatus.pending;
 
     return Container(
@@ -228,7 +202,7 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
                   borderRadius: BorderRadius.circular(8.r),
                 ),
                 child: Text(
-                  _statusLabel(r.status),
+                  RequestStatus.label(r.status),
                   style: TextStyle(
                     fontSize: 11.sp,
                     fontWeight: FontWeight.w600,

@@ -12,29 +12,6 @@ import '../../providers/owner_provider.dart';
 class OwnerTurfScreen extends ConsumerWidget {
   const OwnerTurfScreen({super.key});
 
-  IconData _amenityIcon(String amenity) {
-    switch (amenity.toLowerCase()) {
-      case 'parking':
-        return Icons.local_parking_rounded;
-      case 'floodlights':
-        return Icons.light_rounded;
-      case 'changing room':
-        return Icons.checkroom_rounded;
-      case 'drinking water':
-        return Icons.water_drop_rounded;
-      case 'washroom':
-        return Icons.wc_rounded;
-      case 'first aid':
-        return Icons.medical_services_rounded;
-      case 'cafeteria':
-        return Icons.restaurant_rounded;
-      case 'wifi':
-        return Icons.wifi_rounded;
-      default:
-        return Icons.check_circle_outline_rounded;
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final turfsAsync = ref.watch(ownerTurfsProvider);
@@ -82,7 +59,7 @@ class OwnerTurfScreen extends ConsumerWidget {
 
           // Show the first turf (most owners have 1)
           final turf = turfs.first;
-          return _TurfDetails(turf: turf, amenityIcon: _amenityIcon);
+          return _TurfDetails(turf: turf, amenityIcon: AmenityUtils.icon);
         },
       ),
     );
@@ -111,7 +88,7 @@ class _TurfDetails extends StatelessWidget {
               fit: BoxFit.cover,
               placeholder: (_, __) => Container(
                 height: 200.h,
-                color: const Color(0xFF1B4332),
+                color: AppColors.primaryDark,
                 child: Center(
                   child: Icon(Icons.sports,
                       size: 40.sp,
@@ -120,7 +97,7 @@ class _TurfDetails extends StatelessWidget {
               ),
               errorWidget: (_, __, ___) => Container(
                 height: 200.h,
-                color: const Color(0xFF1B4332),
+                color: AppColors.primaryDark,
                 child: Center(
                   child: Icon(Icons.image_not_supported,
                       size: 40.sp,

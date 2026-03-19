@@ -393,7 +393,7 @@ class _TurfCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.star_rounded,
-                            color: const Color(0xFFF59E0B),
+                            color: AppColors.warning,
                             size: 16.sp),
                         SizedBox(width: 4.w),
                         Text(
@@ -508,7 +508,7 @@ class _TurfCard extends StatelessWidget {
 
   Widget _photoPlaceholder() => Container(
         height: 200.h,
-        color: const Color(0xFF1B4332),
+        color: AppColors.primaryDark,
         child: Center(
           child: Icon(
             Icons.sports_soccer,

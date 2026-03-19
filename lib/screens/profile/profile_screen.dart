@@ -489,7 +489,7 @@ class _OwnerRegistrationBanner extends ConsumerWidget {
         padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF00C96A), Color(0xFF00A857)],
+            colors: [AppColors.primary, AppColors.primaryGradient],
           ),
           borderRadius: BorderRadius.circular(14.r),
         ),

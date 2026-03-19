@@ -112,7 +112,7 @@ class AdminBookingsDetailScreen extends ConsumerWidget {
                         child: _SummaryCard(
                           label: 'Last 3 Weeks',
                           value: '$total3w',
-                          color: const Color(0xFF2563EB),
+                          color: AppColors.blue,
                         ),
                       ),
                       SizedBox(width: 12.w),
@@ -152,7 +152,7 @@ class AdminBookingsDetailScreen extends ConsumerWidget {
                       _StatusChip(
                           label: 'Done',
                           count: completed,
-                          color: const Color(0xFF7C3AED)),
+                          color: AppColors.purple),
                     ],
                   ),
                 ),
@@ -278,8 +278,8 @@ class AdminBookingsDetailScreen extends ConsumerWidget {
                                 toY: values[i].toDouble(),
                                 width: 8.w,
                                 color: isCurrentWeek
-                                    ? const Color(0xFF2563EB)
-                                    : const Color(0xFF2563EB)
+                                    ? AppColors.blue
+                                    : AppColors.blue
                                         .withValues(alpha: 0.4),
                                 borderRadius: BorderRadius.vertical(
                                   top: Radius.circular(4.r),
@@ -314,13 +314,13 @@ class AdminBookingsDetailScreen extends ConsumerWidget {
                   label: weekLabel3,
                   tag: 'This Week',
                   count: week3,
-                  color: const Color(0xFF2563EB),
+                  color: AppColors.blue,
                 ),
                 _WeekRow(
                   label: weekLabel2,
                   tag: 'Last Week',
                   count: week2,
-                  color: const Color(0xFF7C3AED),
+                  color: AppColors.purple,
                 ),
                 _WeekRow(
                   label: weekLabel1,

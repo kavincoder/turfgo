@@ -74,9 +74,9 @@ class _UserCard extends ConsumerWidget {
   Color _roleColor(String role) {
     switch (role) {
       case UserRole.admin:
-        return const Color(0xFF7C3AED);
+        return AppColors.purple;
       case UserRole.owner:
-        return const Color(0xFF2563EB);
+        return AppColors.blue;
       default:
         return AppColors.primary;
     }

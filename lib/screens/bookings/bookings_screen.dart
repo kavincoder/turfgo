@@ -96,27 +96,8 @@ class _BookingCard extends StatelessWidget {
 
   const _BookingCard({required this.booking});
 
-  Color get _statusColor {
-    switch (booking.status) {
-      case BookingStatus.confirmed:
-        return AppColors.primary;
-      case BookingStatus.pending:
-        return AppColors.warning;
-      default:
-        return AppColors.grey;
-    }
-  }
-
-  String get _statusLabel {
-    switch (booking.status) {
-      case BookingStatus.confirmed:
-        return 'Confirmed';
-      case BookingStatus.pending:
-        return 'Pending';
-      default:
-        return booking.status;
-    }
-  }
+  Color get _statusColor => BookingStatus.color(booking.status);
+  String get _statusLabel => BookingStatus.label(booking.status);
 
   String get _formattedDate => TurfDateUtils.formatDate(booking.slotDate);
 

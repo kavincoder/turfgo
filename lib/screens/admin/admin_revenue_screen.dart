@@ -118,7 +118,7 @@ class AdminRevenueScreen extends ConsumerWidget {
                         child: _SummaryCard(
                           label: 'All Time',
                           value: '₹${_formatAmount(allTimeRevenue)}',
-                          color: const Color(0xFF7C3AED),
+                          color: AppColors.purple,
                         ),
                       ),
                     ],
@@ -292,13 +292,13 @@ class AdminRevenueScreen extends ConsumerWidget {
                   label: weekLabel2,
                   tag: 'Last Week',
                   amount: week2,
-                  color: const Color(0xFF2563EB),
+                  color: AppColors.blue,
                 ),
                 _WeekRow(
                   label: weekLabel1,
                   tag: '2 Weeks Ago',
                   amount: week1,
-                  color: const Color(0xFF7C3AED),
+                  color: AppColors.purple,
                 ),
 
                 SizedBox(height: 24.h),

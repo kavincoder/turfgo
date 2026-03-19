@@ -47,28 +47,6 @@ class _OwnerRegistrationScreenState
 
   // Sports list sourced from constants — single source of truth
   static const _allSports = Sports.all;
-  static const _allAmenities = [
-    'Parking',
-    'Washroom',
-    'Drinking Water',
-    'Changing Room',
-    'First Aid',
-    'Floodlights',
-    'Seating Area',
-    'Cafeteria',
-  ];
-
-  static const _amenityIcons = {
-    'Parking': Icons.local_parking_rounded,
-    'Washroom': Icons.wc_rounded,
-    'Drinking Water': Icons.water_drop_rounded,
-    'Changing Room': Icons.checkroom_rounded,
-    'First Aid': Icons.medical_services_rounded,
-    'Floodlights': Icons.lightbulb_rounded,
-    'Seating Area': Icons.event_seat_rounded,
-    'Cafeteria': Icons.restaurant_rounded,
-  };
-
   static const _timeSlots = [
     '05:00', '06:00', '07:00', '08:00', '09:00', '10:00',
     '11:00', '12:00', '13:00', '14:00', '15:00', '16:00',
@@ -585,8 +563,8 @@ class _OwnerRegistrationScreenState
             ),
           ),
           SizedBox(height: 20.h),
-          ...List.generate(_allAmenities.length, (i) {
-            final amenity = _allAmenities[i];
+          ...List.generate(AmenityUtils.all.length, (i) {
+            final amenity = AmenityUtils.all[i];
             final selected = _selectedAmenities.contains(amenity);
             return GestureDetector(
               onTap: () {
@@ -616,7 +594,7 @@ class _OwnerRegistrationScreenState
                 child: Row(
                   children: [
                     Icon(
-                      _amenityIcons[amenity] ?? Icons.check_circle_outline,
+                      AmenityUtils.icon(amenity),
                       size: 20.sp,
                       color: selected
                           ? AppColors.primary

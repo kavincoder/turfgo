@@ -9,15 +9,6 @@ import '../../models/turf.dart';
 import '../../providers/review_provider.dart';
 import '../slot_selection/slot_selection_screen.dart';
 
-const _amenityIcons = {
-  'Parking': Icons.local_parking_rounded,
-  'Floodlights': Icons.light_mode_rounded,
-  'Changing Room': Icons.checkroom_rounded,
-  'Drinking Water': Icons.water_drop_rounded,
-  'First Aid': Icons.medical_services_rounded,
-  'Cafeteria': Icons.restaurant_rounded,
-};
-
 class TurfDetailScreen extends ConsumerWidget {
   final Turf turf;
 
@@ -116,7 +107,7 @@ class TurfDetailScreen extends ConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.star_rounded,
-                                color: const Color(0xFFF59E0B),
+                                color: AppColors.warning,
                                 size: 18.sp),
                             SizedBox(width: 4.w),
                             Text(
@@ -249,8 +240,7 @@ class TurfDetailScreen extends ConsumerWidget {
                         spacing: 12.w,
                         runSpacing: 16.h,
                         children: turf.amenities.map((amenity) {
-                          final icon = _amenityIcons[amenity] ??
-                              Icons.check_circle_outline;
+                          final icon = AmenityUtils.icon(amenity);
                           return SizedBox(
                             width: (MediaQuery.of(context).size.width -
                                     40.w -
@@ -323,7 +313,7 @@ class TurfDetailScreen extends ConsumerWidget {
                             child: Row(
                               children: [
                                 Icon(Icons.star_rounded,
-                                    color: const Color(0xFFF59E0B),
+                                    color: AppColors.warning,
                                     size: 14.sp),
                                 SizedBox(width: 3.w),
                                 Text(
@@ -435,7 +425,7 @@ class TurfDetailScreen extends ConsumerWidget {
 
   Widget _photoPlaceholder(BuildContext context) => Container(
         height: 300.h,
-        color: const Color(0xFF1B4332),
+        color: AppColors.primaryDark,
         child: Center(
           child: Icon(
             Icons.sports_soccer,
@@ -523,7 +513,7 @@ class _ReviewTile extends StatelessWidget {
                                 ? Icons.star_rounded
                                 : Icons.star_outline_rounded,
                             size: 14.sp,
-                            color: const Color(0xFFF59E0B),
+                            color: AppColors.warning,
                           );
                         }),
                         SizedBox(width: 6.w),
