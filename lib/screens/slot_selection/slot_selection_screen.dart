@@ -6,6 +6,7 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../core/constants.dart';
 import '../../core/date_utils.dart';
+import '../../data/repositories/slot_repository.dart';
 import '../../models/slot.dart';
 import '../../models/turf.dart';
 import '../../providers/turf_provider.dart';
@@ -27,6 +28,8 @@ class _SlotSelectionScreenState
   late String _selectedSport;
   int? _selectedSlotIndex;
   int _duration = 1;
+  bool _generatingSlots = false;
+  final _generatedDates = <String>{}; // tracks dates already generated this session
 
   final _dates = List.generate(7, (i) {
     final now = DateTime.now();
@@ -38,6 +41,24 @@ class _SlotSelectionScreenState
     super.initState();
     _selectedDate = _dates[0];
     _selectedSport = widget.turf.sports.first;
+  }
+
+  // Called when the stream for a date returns empty — generates slot docs via CF.
+  // The real-time stream auto-updates once the CF writes to Firestore.
+  Future<void> _maybeGenerateSlots(String dateStr) async {
+    if (_generatingSlots || _generatedDates.contains(dateStr)) return;
+    setState(() => _generatingSlots = true);
+    try {
+      await SlotRepository().generateSlots(
+        turfId: widget.turf.id,
+        date: dateStr,
+      );
+      _generatedDates.add(dateStr);
+    } catch (e, st) {
+      debugPrint('[SlotSelection] generateSlots error: $e\n$st');
+    } finally {
+      if (mounted) setState(() => _generatingSlots = false);
+    }
   }
 
   // Hours available for this turf based on its open/close time
@@ -165,6 +186,11 @@ class _SlotSelectionScreenState
     final slotsAsync = ref.watch(
       slotsProvider((turfId: widget.turf.id, date: dateStr)),
     );
+
+    // Auto-generate slot docs when Firestore has none for this date
+    slotsAsync.whenData((slots) {
+      if (slots.isEmpty) _maybeGenerateSlots(dateStr);
+    });
 
     // Build set of unavailable startTimes for the selected sport
     final unavailableStartTimes = slotsAsync.whenOrNull(
@@ -538,8 +564,8 @@ class _SlotSelectionScreenState
                       ),
                       SizedBox(height: 16.h),
 
-                      // Skeleton while slots are loading
-                      if (slotsAsync.isLoading)
+                      // Skeleton while slots are loading or being generated
+                      if (slotsAsync.isLoading || _generatingSlots)
                         Shimmer.fromColors(
                           baseColor: Colors.grey[200]!,
                           highlightColor: Colors.grey[100]!,
