@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -43,6 +45,19 @@ Future<void> main() async {
     appleProvider:
         kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
   );
+
+  // ── Local emulator (debug only) ───────────────────────────────────────────
+  // In debug mode, point all Firebase services at the local emulator suite.
+  // This lets you test Cloud Functions, Firestore, and Auth without hitting
+  // the real Firebase project — and without needing Blaze plan deployed.
+  //
+  // Start the emulator with: firebase emulators:start
+  // Emulator UI at: http://localhost:4000
+  if (kDebugMode) {
+    FirebaseFunctions.instance.useFunctionsEmulator('localhost', 5001);
+    FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
+    await FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
+  }
 
   // Skip reCAPTCHA on simulator/debug (needed for test phone numbers)
   if (kDebugMode) {
