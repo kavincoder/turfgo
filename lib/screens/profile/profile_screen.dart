@@ -187,8 +187,9 @@ class _Body extends ConsumerWidget {
 
           SizedBox(height: 28.h),
 
-          // ── Owner registration (players only) ─────────────────
-          if (user?.role == UserRole.player) _OwnerRegistrationBanner(),
+          // ── Owner registration — hide only for admins and confirmed owners ──
+          if (user?.role != UserRole.admin && user?.role != UserRole.owner)
+            _OwnerRegistrationBanner(),
 
           // ── Menu ──────────────────────────────────────────────
           Container(
