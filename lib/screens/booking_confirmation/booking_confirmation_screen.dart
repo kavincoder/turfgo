@@ -13,12 +13,7 @@ import '../../models/turf.dart';
 import '../../providers/user_provider.dart';
 import '../booking_success/booking_success_screen.dart';
 
-// RAZORPAY_KEY_ID is a public key — safe to ship in the client.
-// Pass it at build time: flutter run --dart-define=RAZORPAY_KEY_ID=rzp_test_xxx
-const _kRazorpayKeyId = String.fromEnvironment(
-  'RAZORPAY_KEY_ID',
-  defaultValue: 'rzp_test_placeholder',
-);
+// Razorpay KEY_ID is returned by createRazorpayOrder CF — never stored in the binary.
 
 enum _PaymentState { idle, loading, failed }
 
@@ -104,13 +99,14 @@ class _BookingConfirmationScreenState
         turfId: widget.turf.id,
       );
       _pendingOrderId = orderData['orderId'] as String;
+      final razorpayKeyId = orderData['keyId'] as String;
 
       // Step 3: Prefill user details
       final user = ref.read(currentUserProvider).valueOrNull;
 
       // Step 4: Open Razorpay payment sheet
       _razorpay.open({
-        'key': _kRazorpayKeyId,
+        'key': razorpayKeyId,
         'amount': _totalInPaise,
         'order_id': _pendingOrderId,
         'name': 'TurfGo',
@@ -149,7 +145,6 @@ class _BookingConfirmationScreenState
         slotStartTime: _slotStartTime,
         slotEndTime: _slotEndTime,
         sport: widget.sport,
-        totalAmount: _totalAmount,
         razorpayPaymentId: response.paymentId ?? '',
         razorpayOrderId: response.orderId ?? _pendingOrderId ?? '',
         razorpaySignature: response.signature ?? '',

@@ -53,7 +53,6 @@ class PaymentRepository {
     required String slotStartTime,
     required String slotEndTime,
     required String sport,
-    required int totalAmount,
     required String razorpayPaymentId,
     required String razorpayOrderId,
     required String razorpaySignature,
@@ -68,7 +67,7 @@ class PaymentRepository {
       'slotStartTime': slotStartTime,
       'slotEndTime': slotEndTime,
       'sport': sport,
-      'totalAmount': totalAmount,
+      // totalAmount and advancePaid are calculated server-side from pricePerHour
       'razorpayPaymentId': razorpayPaymentId,
       'razorpayOrderId': razorpayOrderId,
       'razorpaySignature': razorpaySignature,

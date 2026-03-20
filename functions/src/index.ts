@@ -116,6 +116,9 @@ export const createRazorpayOrder = onCall(
       "base64"
     );
 
+    // Null-safe receipt — fallback if client sends nothing
+    const safeReceipt = (receipt || `tgo_${Date.now()}`).substring(0, 40);
+
     const response = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
       headers: {
@@ -125,7 +128,7 @@ export const createRazorpayOrder = onCall(
       body: JSON.stringify({
         amount: amountInPaise,
         currency: "INR",
-        receipt: receipt.substring(0, 40), // Razorpay max 40 chars
+        receipt: safeReceipt,
       }),
     });
 
@@ -141,7 +144,8 @@ export const createRazorpayOrder = onCall(
       currency: string;
     };
 
-    return { orderId: order.id, amount: order.amount, currency: order.currency };
+    // Return keyId so the client never needs to store it in the binary
+    return { orderId: order.id, amount: order.amount, currency: order.currency, keyId };
   }
 );
 
@@ -170,8 +174,6 @@ export const createBooking = onCall(
       slotStartTime,
       slotEndTime,
       sport,
-      totalAmount,
-      advancePaid,
       razorpayPaymentId,
       razorpayOrderId,
       razorpaySignature,
@@ -184,12 +186,24 @@ export const createBooking = onCall(
       slotStartTime: string;
       slotEndTime: string;
       sport: string;
-      totalAmount: number;
-      advancePaid: number;
       razorpayPaymentId: string;
       razorpayOrderId: string;
       razorpaySignature: string;
     };
+
+    // ── Recalculate totalAmount server-side ────────────────────────────────
+    // Never trust the client-sent amount — fetch pricePerHour from Firestore.
+    // This prevents anyone from paying ₹1 for a ₹1,000 slot.
+    const turfDoc = await db.collection("turfs").doc(turfId).get();
+    if (!turfDoc.exists) {
+      throw new HttpsError("not-found", "Turf not found.");
+    }
+    const pricePerHour = turfDoc.data()!.pricePerHour as number;
+    if (!pricePerHour || pricePerHour <= 0) {
+      throw new HttpsError("internal", "Invalid turf pricing.");
+    }
+    const totalAmount = Math.round(pricePerHour * slotIds.length);
+    const advancePaid = totalAmount; // 100% advance payment
 
     // ── Verify Razorpay signature ──────────────────────────────────────────
     // Without this, anyone could call this function with a fake paymentId
