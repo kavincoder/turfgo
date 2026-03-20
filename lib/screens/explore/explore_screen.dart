@@ -187,6 +187,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   return _EmptyState(
                     query: _query,
                     sport: _selectedSport,
+                    noTurfsInCity: turfs.isEmpty,
                     onClear: () {
                       _searchController.clear();
                       setState(() {
@@ -458,16 +459,30 @@ class _ExploreTurfCardSkeleton extends StatelessWidget {
 class _EmptyState extends StatelessWidget {
   final String query;
   final String sport;
+  final bool noTurfsInCity;
   final VoidCallback onClear;
 
   const _EmptyState({
     required this.query,
     required this.sport,
+    required this.noTurfsInCity,
     required this.onClear,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isFiltering = query.isNotEmpty || sport != 'All';
+
+    final icon = noTurfsInCity
+        ? Icons.location_city_rounded
+        : Icons.search_off_rounded;
+    final title = noTurfsInCity
+        ? 'No turfs in your city yet'
+        : 'No turfs found';
+    final subtitle = noTurfsInCity
+        ? 'We\'re onboarding turfs near you. Check back soon!'
+        : 'Try a different search or sport filter.';
+
     return Center(
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 40.w),
@@ -481,12 +496,11 @@ class _EmptyState extends StatelessWidget {
                 color: AppColors.primaryLight,
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.search_off_rounded,
-                  size: 38.sp, color: AppColors.primary),
+              child: Icon(icon, size: 38.sp, color: AppColors.primary),
             ),
             SizedBox(height: 20.h),
             Text(
-              'No turfs found',
+              title,
               style: TextStyle(
                 fontSize: 18.sp,
                 fontWeight: FontWeight.w700,
@@ -496,7 +510,7 @@ class _EmptyState extends StatelessWidget {
             ),
             SizedBox(height: 8.h),
             Text(
-              'Try a different search or sport filter.',
+              subtitle,
               style: TextStyle(
                 fontSize: 14.sp,
                 color: AppColors.textSecondary,
@@ -504,25 +518,27 @@ class _EmptyState extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 24.h),
-            ElevatedButton(
-              onPressed: onClear,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                minimumSize: Size(double.infinity, 48.h),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
+            if (isFiltering && !noTurfsInCity) ...[
+              SizedBox(height: 24.h),
+              ElevatedButton(
+                onPressed: onClear,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  minimumSize: Size(double.infinity, 48.h),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  elevation: 0,
+                  textStyle: TextStyle(
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: AppTextStyles.bodyFont,
+                  ),
                 ),
-                elevation: 0,
-                textStyle: TextStyle(
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: AppTextStyles.bodyFont,
-                ),
+                child: const Text('Clear Filters'),
               ),
-              child: const Text('Clear Filters'),
-            ),
+            ],
           ],
         ),
       ),

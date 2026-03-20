@@ -12,9 +12,9 @@ final slotRepositoryProvider = Provider<SlotRepository>(
   (ref) => SlotRepository(),
 );
 
-// Cache turfs per cityId — Firestore only queried once per city per session.
-final turfsProvider = FutureProvider.family<List<Turf>, String>(
-  (ref, cityId) => ref.watch(turfRepositoryProvider).getTurfs(cityId),
+// Real-time turf stream per cityId — updates immediately when Firestore changes.
+final turfsProvider = StreamProvider.family<List<Turf>, String>(
+  (ref, cityId) => ref.watch(turfRepositoryProvider).getTurfsStream(cityId),
 );
 
 // Cache single turf per turfId.
