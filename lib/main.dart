@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -10,6 +12,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'core/theme.dart';
 import 'firebase_options.dart';
 import 'router/app_router.dart';
+
+// Pass --dart-define=USE_EMULATOR=true to connect to the local emulator.
+// Normal `flutter run` always uses real Firebase — emulator is opt-in only.
+const bool _kUseEmulator = bool.fromEnvironment('USE_EMULATOR');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +33,18 @@ Future<void> main() async {
 
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // ── Local Emulator (opt-in via --dart-define=USE_EMULATOR=true) ──────────
+  // Uses localhost for iOS simulator / macOS.
+  // For Android emulator change host to '10.0.2.2'.
+  if (_kUseEmulator) {
+    const host = 'localhost';
+    FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
+    await FirebaseAuth.instance.useAuthEmulator(host, 9099);
+    FirebaseFunctions.instanceFor(region: 'us-central1')
+        .useFunctionsEmulator(host, 5001);
+    debugPrint('⚠️  EMULATOR MODE — connected to localhost');
+  }
 
   // ── Firebase App Check ────────────────────────────────────────────────────
   // Ensures only the genuine app binary can make requests to Firebase services.
