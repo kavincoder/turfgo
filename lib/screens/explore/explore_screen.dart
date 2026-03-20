@@ -43,8 +43,10 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cityId = ref.watch(currentUserProvider).valueOrNull?.cityId ??
-        _kDefaultCityId;
+    final userAsync = ref.watch(currentUserProvider);
+    final cityId = userAsync.valueOrNull?.cityId.isNotEmpty == true
+        ? userAsync.valueOrNull!.cityId
+        : _kDefaultCityId;
     final turfsAsync = ref.watch(turfsProvider(cityId));
 
     return Scaffold(
