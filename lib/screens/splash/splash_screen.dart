@@ -1,87 +1,70 @@
-import 'dart:async';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants.dart';
-import '../../providers/user_provider.dart';
 
-class SplashScreen extends ConsumerStatefulWidget {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  ConsumerState<SplashScreen> createState() => _SplashScreenState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen> {
-  Timer? _timeout;
-  bool _routed = false;
-
+class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-
-    // Minimum splash display time
-    Future.delayed(const Duration(milliseconds: 800), _tryRoute);
-
-    // Hard timeout — if Firestore never responds, fall back after 6 seconds
-    _timeout = Timer(const Duration(seconds: 6), () {
-      _routeTo(FirebaseAuth.instance.currentUser != null ? '/home' : '/login');
-    });
+    _init();
   }
 
-  @override
-  void dispose() {
-    _timeout?.cancel();
-    super.dispose();
+  Future<void> _init() async {
+    // Minimum splash duration for branding
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (!mounted) return;
+    await _route();
   }
 
-  void _tryRoute() {
-    if (!mounted || _routed) return;
+  Future<void> _route() async {
+    if (!mounted) return;
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      _routeTo('/login');
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null) {
+      context.go('/login');
       return;
     }
 
-    // Check if currentUserProvider already has data loaded
-    final userAsync = ref.read(currentUserProvider);
-    userAsync.whenData((appUser) {
-      if (appUser != null) {
-        _routeByRole(appUser.role);
+    // Fresh Firestore read — never uses a stale Riverpod stream.
+    // Retries up to 3 times with a short back-off so a slow network
+    // doesn't accidentally drop the admin to the player home.
+    String role = UserRole.player;
+    for (int attempt = 0; attempt < 3; attempt++) {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(firebaseUser.uid)
+            .get();
+        role = (doc.data()?['role'] as String?)?.trim() ?? UserRole.player;
+        break; // success — stop retrying
+      } catch (_) {
+        if (attempt < 2) {
+          await Future.delayed(const Duration(seconds: 1));
+        }
+        // On final failure keep default 'player' role
       }
-      // If null doc, wait for listener below
-    });
+    }
 
-    // Listen for the first data emission from Firestore
-    ref.listenManual(currentUserProvider, (prev, next) {
-      if (_routed || !mounted) return;
-      next.whenData((appUser) {
-        _routeByRole(appUser?.role ?? UserRole.player);
-      });
-    });
-  }
-
-  void _routeByRole(String role) {
+    if (!mounted) return;
     switch (role) {
       case UserRole.admin:
-        _routeTo('/admin');
+        context.go('/admin');
       case UserRole.owner:
-        _routeTo('/owner');
+        context.go('/owner');
       default:
-        _routeTo('/home');
+        context.go('/home');
     }
-  }
-
-  void _routeTo(String path) {
-    if (_routed || !mounted) return;
-    _routed = true;
-    _timeout?.cancel();
-    context.go(path);
   }
 
   @override
