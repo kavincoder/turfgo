@@ -175,7 +175,8 @@ class _BookingConfirmationScreenState
         _errorMessage =
             'Payment received but booking failed. Contact support with payment ID: ${response.paymentId}. Error: ${e.message}';
       });
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('[BookingConfirmation] createBooking unexpected error: $e\n$st');
       if (!mounted) return;
       setState(() {
         _paymentState = _PaymentState.failed;

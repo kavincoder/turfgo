@@ -206,6 +206,28 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
+    // ── Pending Orders ────────────────────────────────────────────────────────
+    // Written by createRazorpayOrder CF, deleted by createBooking CF.
+    // Users can read their own pending order only.
+    // No client writes — prevents order forgery.
+
+    match /pendingOrders/{orderId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow write: if false; // Cloud Functions only
+    }
+
+    // ── Owner Requests ────────────────────────────────────────────────────────
+    // Written by submitOwnerRequest CF only.
+    // Users can read their own request. Admins can read and manage all.
+    // No client writes — prevents self-approving owner status.
+
+    match /ownerRequests/{requestId} {
+      allow read: if isAuth() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow write: if false; // Cloud Functions only
+    }
+
     // ── Deny everything else ──────────────────────────────────────────────────
     // Explicit catch-all: any collection not listed above is fully locked.
 

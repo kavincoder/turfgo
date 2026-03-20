@@ -7,6 +7,26 @@ admin.initializeApp();
 const db = admin.firestore();
 const LOCK_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 
+// ── Helper: deduplicate and validate slotIds ──────────────────────────────────
+// Deduplication prevents: paying for 1 slot but passing ["slot1","slot1","slot1","slot1"]
+// to inflate duration or bypass the max-slots check.
+function validateSlotIds(slotIds: unknown): string[] {
+  if (!Array.isArray(slotIds) || slotIds.length === 0) {
+    throw new HttpsError(
+      "invalid-argument",
+      "slotIds must be a non-empty array."
+    );
+  }
+  const unique = [...new Set(slotIds as string[])];
+  if (unique.length > 4) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Maximum 4 slots (4 hours) per booking."
+    );
+  }
+  return unique;
+}
+
 // ── lockSlot ──────────────────────────────────────────────────────────────────
 // Locks one or more slots atomically for 5 minutes for this user.
 // For multi-hour bookings, pass all slot IDs in the selected range.
@@ -17,25 +37,17 @@ export const lockSlot = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Must be logged in.");
   }
 
-  const { turfId, slotIds } = request.data as {
+  const { turfId, slotIds: rawSlotIds } = request.data as {
     turfId: string;
     slotIds: string[];
   };
 
-  if (!turfId || !slotIds || slotIds.length === 0) {
-    throw new HttpsError(
-      "invalid-argument",
-      "turfId and slotIds are required."
-    );
+  if (!turfId) {
+    throw new HttpsError("invalid-argument", "turfId is required.");
   }
 
-  if (slotIds.length > 4) {
-    throw new HttpsError(
-      "invalid-argument",
-      "Maximum 4 slots (4 hours) per booking."
-    );
-  }
-
+  // Deduplicate before processing — prevents double-locking the same slot
+  const slotIds = validateSlotIds(rawSlotIds);
   const uid = request.auth.uid;
 
   return db.runTransaction(async (tx) => {
@@ -88,8 +100,13 @@ export const lockSlot = onCall(async (request) => {
 });
 
 // ── createRazorpayOrder ────────────────────────────────────────────────────────
-// Creates a Razorpay order server-side. Amount is calculated server-side from
-// Firestore pricePerHour — the client never controls the amount.
+// Creates a Razorpay order server-side. Amount is calculated from Firestore
+// pricePerHour — the client NEVER controls the amount.
+//
+// Also stores a pendingOrders document so createBooking can verify:
+//   1. This orderId was created by OUR server (not forged)
+//   2. The turfId matches (prevents cross-turf price manipulation)
+//   3. The amount matches (belt-and-suspenders check)
 //
 // Set secrets once:
 //   firebase functions:secrets:set RAZORPAY_KEY_ID
@@ -102,25 +119,19 @@ export const createRazorpayOrder = onCall(
       throw new HttpsError("unauthenticated", "Must be logged in.");
     }
 
-    const { turfId, slotIds, receipt } = request.data as {
+    const { turfId, slotIds: rawSlotIds, receipt } = request.data as {
       turfId: string;
       slotIds: string[];
       receipt: string;
     };
 
-    if (!turfId || !slotIds || slotIds.length === 0) {
-      throw new HttpsError(
-        "invalid-argument",
-        "turfId and slotIds are required."
-      );
+    if (!turfId) {
+      throw new HttpsError("invalid-argument", "turfId is required.");
     }
 
-    if (slotIds.length > 4) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Maximum 4 slots (4 hours) per booking."
-      );
-    }
+    // Deduplicate — prevents inflating amount by passing duplicate slot IDs
+    const slotIds = validateSlotIds(rawSlotIds);
+    const uid = request.auth.uid;
 
     // Recalculate amount server-side — never trust the client-sent amount.
     // This prevents paying ₹1 for a ₹1,000 slot.
@@ -142,10 +153,7 @@ export const createRazorpayOrder = onCall(
       throw new HttpsError("internal", "Payment configuration error.");
     }
 
-    // Use Razorpay REST API directly — no SDK needed on Node 20 (native fetch)
-    const credentials = Buffer.from(`${keyId}:${keySecret}`).toString(
-      "base64"
-    );
+    const credentials = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
 
     // Null-safe receipt — fallback if client sends nothing
     const safeReceipt = (receipt || `tgo_${Date.now()}`).substring(0, 40);
@@ -175,19 +183,40 @@ export const createRazorpayOrder = onCall(
       currency: string;
     };
 
+    // Store pending order metadata for verification in createBooking.
+    // This prevents cross-turf price manipulation:
+    //   An attacker cannot create a ₹200 order for a cheap turf and use it
+    //   to book a ₹1,000 slot on a different turf.
+    await db.collection("pendingOrders").doc(order.id).set({
+      userId: uid,
+      turfId,
+      slotIds,
+      amountInPaise: order.amount,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      // 30-minute expiry — matches Razorpay order expiry
+      expiresAt: new admin.firestore.Timestamp(
+        Math.floor(Date.now() / 1000) + 30 * 60,
+        0
+      ),
+    });
+
     // Return keyId so the client never needs to store it in the binary
-    return { orderId: order.id, amount: order.amount, currency: order.currency, keyId };
+    return {
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      keyId,
+    };
   }
 );
 
 // ── createBooking ─────────────────────────────────────────────────────────────
 // Called by the client after Razorpay fires EVENT_PAYMENT_SUCCESS.
-// 1. Verifies the Razorpay payment signature server-side — prevents fake payments.
-// 2. Confirms all slots are still locked by this user — prevents race conditions.
-// 3. Creates the booking document and marks all slots as booked atomically.
-//
-// The secret is stored in Firebase Secret Manager — never in code.
-// Set it once with: firebase functions:secrets:set RAZORPAY_KEY_SECRET
+// 1. Verifies orderId was created by OUR server for THIS turf — blocks cross-turf exploit.
+// 2. Recalculates totalAmount server-side — client amount is never trusted.
+// 3. Verifies Razorpay HMAC signature — blocks fake payment IDs.
+// 4. Confirms all slots are still locked by this user — blocks race conditions.
+// 5. Creates the booking document and marks all slots as booked atomically.
 
 export const createBooking = onCall(
   { secrets: ["RAZORPAY_KEY_SECRET"] },
@@ -200,7 +229,7 @@ export const createBooking = onCall(
       turfId,
       turfName,
       cityId,
-      slotIds,
+      slotIds: rawSlotIds,
       slotDate,
       slotStartTime,
       slotEndTime,
@@ -226,18 +255,49 @@ export const createBooking = onCall(
     if (
       !turfId || !turfName || !cityId || !slotDate ||
       !slotStartTime || !slotEndTime || !sport ||
-      !razorpayPaymentId || !razorpayOrderId || !razorpaySignature ||
-      !slotIds || slotIds.length === 0
+      !razorpayPaymentId || !razorpayOrderId || !razorpaySignature
     ) {
       throw new HttpsError("invalid-argument", "Missing required booking fields.");
     }
-    if (slotIds.length > 4) {
-      throw new HttpsError("invalid-argument", "Maximum 4 slots per booking.");
+
+    // Validate slotDate is a proper YYYY-MM-DD string
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(slotDate)) {
+      throw new HttpsError("invalid-argument", "Invalid slotDate format.");
+    }
+
+    // Deduplicate slotIds
+    const slotIds = validateSlotIds(rawSlotIds);
+    const uid = request.auth.uid;
+
+    // ── Verify pending order ──────────────────────────────────────────────
+    // Confirms this orderId was created by OUR createRazorpayOrder CF
+    // for this exact user and turf — blocks cross-turf price manipulation.
+    const pendingOrderDoc = await db
+      .collection("pendingOrders")
+      .doc(razorpayOrderId)
+      .get();
+
+    if (!pendingOrderDoc.exists) {
+      throw new HttpsError(
+        "not-found",
+        "Order not found. Please start the booking again."
+      );
+    }
+
+    const pendingOrder = pendingOrderDoc.data()!;
+
+    if (pendingOrder.userId !== uid) {
+      throw new HttpsError("permission-denied", "Order does not belong to this user.");
+    }
+
+    if (pendingOrder.turfId !== turfId) {
+      console.error(
+        `Cross-turf attempt: order turfId=${pendingOrder.turfId}, request turfId=${turfId}, uid=${uid}`
+      );
+      throw new HttpsError("invalid-argument", "Order turf mismatch.");
     }
 
     // ── Recalculate totalAmount server-side ────────────────────────────────
-    // Never trust the client-sent amount — fetch pricePerHour from Firestore.
-    // This prevents anyone from paying ₹1 for a ₹1,000 slot.
     const turfDoc = await db.collection("turfs").doc(turfId).get();
     if (!turfDoc.exists) {
       throw new HttpsError("not-found", "Turf not found.");
@@ -247,9 +307,19 @@ export const createBooking = onCall(
       throw new HttpsError("internal", "Invalid turf pricing.");
     }
     const totalAmount = Math.round(pricePerHour * slotIds.length);
-    const advancePaid = totalAmount; // 100% advance payment
+    const expectedAmountInPaise = totalAmount * 100;
 
-    // ── Verify Razorpay signature ──────────────────────────────────────────
+    // Belt-and-suspenders: verify amount matches what was ordered
+    if (pendingOrder.amountInPaise !== expectedAmountInPaise) {
+      console.error(
+        `Amount mismatch: ordered=${pendingOrder.amountInPaise}, expected=${expectedAmountInPaise}, uid=${uid}`
+      );
+      throw new HttpsError("invalid-argument", "Payment amount mismatch.");
+    }
+
+    const advancePaid = totalAmount; // 100% advance
+
+    // ── Verify Razorpay HMAC signature ─────────────────────────────────────
     // Without this, anyone could call this function with a fake paymentId
     // and get a confirmed booking without actually paying.
     const secret = process.env.RAZORPAY_KEY_SECRET;
@@ -270,8 +340,6 @@ export const createBooking = onCall(
     }
 
     // ── Create booking atomically ──────────────────────────────────────────
-    const uid = request.auth.uid;
-
     const slotRefs = slotIds.map((slotId) =>
       db.collection("turfs").doc(turfId).collection("slots").doc(slotId)
     );
@@ -346,7 +414,125 @@ export const createBooking = onCall(
         });
       }
 
+      // Clean up pending order after successful booking
+      tx.delete(db.collection("pendingOrders").doc(razorpayOrderId));
+
       return { bookingId: bookingRef.id };
     });
   }
 );
+
+// ── submitOwnerRequest ────────────────────────────────────────────────────────
+// Submits a turf owner registration request.
+//
+// CRITICAL PATTERN — validate FIRST, write LAST:
+//   All input validation happens before any Firestore write.
+//   This prevents the lock-before-validate bug where a bad request
+//   permanently locks a legitimate owner out of resubmitting.
+
+export const submitOwnerRequest = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be logged in.");
+  }
+
+  const {
+    turfName,
+    address,
+    cityId,
+    sports,
+    pricePerHour,
+    phone,
+    description,
+  } = request.data as {
+    turfName: string;
+    address: string;
+    cityId: string;
+    sports: string[];
+    pricePerHour: number;
+    phone: string;
+    description?: string;
+  };
+
+  // ── Step 1: Validate ALL inputs before touching Firestore ──────────────
+  // Any failure here does NOT lock the user out — they can fix and resubmit.
+  const missing: string[] = [];
+  if (!turfName?.trim()) missing.push("turfName");
+  if (!address?.trim()) missing.push("address");
+  if (!cityId?.trim()) missing.push("cityId");
+  if (!sports || sports.length === 0) missing.push("sports");
+  if (!pricePerHour) missing.push("pricePerHour");
+  if (!phone?.trim()) missing.push("phone");
+
+  if (missing.length > 0) {
+    throw new HttpsError(
+      "invalid-argument",
+      `Missing required fields: ${missing.join(", ")}`
+    );
+  }
+
+  if (turfName.trim().length > 100) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Turf name must be 100 characters or less."
+    );
+  }
+
+  if (!Array.isArray(sports) || sports.length > 10) {
+    throw new HttpsError("invalid-argument", "Invalid sports list.");
+  }
+
+  if (pricePerHour < 100 || pricePerHour > 99999) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Price per hour must be between ₹100 and ₹99,999."
+    );
+  }
+
+  if (!/^[6-9]\d{9}$/.test(phone)) {
+    throw new HttpsError("invalid-argument", "Invalid Indian phone number.");
+  }
+
+  if (description && description.length > 500) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Description must be 500 characters or less."
+    );
+  }
+
+  const uid = request.auth.uid;
+
+  // ── Step 2: Check for existing pending request ─────────────────────────
+  // Only runs AFTER validation passes — no wasted reads on bad input.
+  const existingQuery = await db
+    .collection("ownerRequests")
+    .where("userId", "==", uid)
+    .where("status", "==", "pending")
+    .limit(1)
+    .get();
+
+  if (!existingQuery.empty) {
+    throw new HttpsError(
+      "already-exists",
+      "You already have a pending owner request. Please wait for review."
+    );
+  }
+
+  // ── Step 3: Write the request (all validation passed) ──────────────────
+  const reqRef = db.collection("ownerRequests").doc();
+  await reqRef.set({
+    userId: uid,
+    turfName: turfName.trim(),
+    address: address.trim(),
+    cityId: cityId.trim(),
+    sports,
+    pricePerHour,
+    phone: phone.trim(),
+    description: description?.trim() ?? "",
+    status: "pending",
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    reviewedAt: null,
+    rejectionReason: null,
+  });
+
+  return { requestId: reqRef.id };
+});
