@@ -10,6 +10,7 @@ import '../../core/constants.dart';
 import '../../models/turf.dart';
 import '../../providers/turf_provider.dart';
 import '../../providers/user_provider.dart';
+import '../owner_registration/owner_registration_screen.dart';
 import '../turf_detail/turf_detail_screen.dart';
 
 /// Fallback city when user has no cityId set or location cannot be determined.
@@ -247,6 +248,80 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     );
                   }).toList(),
+                ),
+              ),
+            ),
+          ),
+
+          // "List your turf" banner
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 0),
+              child: GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const OwnerRegistrationScreen(),
+                  ),
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppColors.primary, AppColors.primaryGradient],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16.r),
+                  ),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: 20.w, vertical: 16.h),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Own a turf?',
+                              style: TextStyle(
+                                fontSize: 13.sp,
+                                color: Colors.white
+                                    .withValues(alpha: 0.85),
+                                fontFamily: AppTextStyles.bodyFont,
+                              ),
+                            ),
+                            SizedBox(height: 2.h),
+                            Text(
+                              'List your turf & start earning',
+                              style: TextStyle(
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                fontFamily: AppTextStyles.bodyFont,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 16.w, vertical: 9.h),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24.r),
+                        ),
+                        child: Text(
+                          'Get Started',
+                          style: TextStyle(
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                            fontFamily: AppTextStyles.bodyFont,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
