@@ -58,7 +58,6 @@ class _BookingConfirmationScreenState
   String get _slotStartTime => widget.selectedSlots.first.startTime;
   String get _slotEndTime => widget.selectedSlots.last.endTime;
   int get _totalAmount => (widget.turf.pricePerHour * widget.duration).toInt();
-  int get _totalInPaise => _totalAmount * 100;
 
   @override
   void initState() {
@@ -90,16 +89,19 @@ class _BookingConfirmationScreenState
         slotIds: slotIds,
       );
 
-      // Step 2: Create Razorpay order server-side
+      // Step 2: Create Razorpay order server-side.
+      // Amount is calculated from Firestore pricePerHour — never sent from client.
       final receipt =
           'tgo_${DateTime.now().millisecondsSinceEpoch}'.substring(0, 40);
       final orderData = await _paymentRepo.createRazorpayOrder(
-        amountInPaise: _totalInPaise,
-        receipt: receipt,
         turfId: widget.turf.id,
+        slotIds: slotIds,
+        receipt: receipt,
       );
       _pendingOrderId = orderData['orderId'] as String;
       final razorpayKeyId = orderData['keyId'] as String;
+      // Use the server-verified amount — never the client-calculated one.
+      final serverAmountInPaise = (orderData['amount'] as num).toInt();
 
       // Step 3: Prefill user details
       final user = ref.read(currentUserProvider).valueOrNull;
@@ -107,7 +109,7 @@ class _BookingConfirmationScreenState
       // Step 4: Open Razorpay payment sheet
       _razorpay.open({
         'key': razorpayKeyId,
-        'amount': _totalInPaise,
+        'amount': serverAmountInPaise,
         'order_id': _pendingOrderId,
         'name': 'TurfGo',
         'description': '${widget.turf.name} · ${widget.slotLabel}',

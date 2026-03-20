@@ -29,6 +29,13 @@ export const lockSlot = onCall(async (request) => {
     );
   }
 
+  if (slotIds.length > 4) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Maximum 4 slots (4 hours) per booking."
+    );
+  }
+
   const uid = request.auth.uid;
 
   return db.runTransaction(async (tx) => {
@@ -81,8 +88,8 @@ export const lockSlot = onCall(async (request) => {
 });
 
 // ── createRazorpayOrder ────────────────────────────────────────────────────────
-// Creates a Razorpay order server-side. The client uses the returned orderId
-// to open the Razorpay payment sheet. Amount must be in paise (₹1 = 100 paise).
+// Creates a Razorpay order server-side. Amount is calculated server-side from
+// Firestore pricePerHour — the client never controls the amount.
 //
 // Set secrets once:
 //   firebase functions:secrets:set RAZORPAY_KEY_ID
@@ -95,14 +102,38 @@ export const createRazorpayOrder = onCall(
       throw new HttpsError("unauthenticated", "Must be logged in.");
     }
 
-    const { amountInPaise, receipt } = request.data as {
-      amountInPaise: number;
+    const { turfId, slotIds, receipt } = request.data as {
+      turfId: string;
+      slotIds: string[];
       receipt: string;
     };
 
-    if (!amountInPaise || amountInPaise < 100) {
-      throw new HttpsError("invalid-argument", "Invalid amount.");
+    if (!turfId || !slotIds || slotIds.length === 0) {
+      throw new HttpsError(
+        "invalid-argument",
+        "turfId and slotIds are required."
+      );
     }
+
+    if (slotIds.length > 4) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Maximum 4 slots (4 hours) per booking."
+      );
+    }
+
+    // Recalculate amount server-side — never trust the client-sent amount.
+    // This prevents paying ₹1 for a ₹1,000 slot.
+    const turfDoc = await db.collection("turfs").doc(turfId).get();
+    if (!turfDoc.exists) {
+      throw new HttpsError("not-found", "Turf not found.");
+    }
+    const pricePerHour = turfDoc.data()!.pricePerHour as number;
+    if (!pricePerHour || pricePerHour <= 0) {
+      throw new HttpsError("internal", "Invalid turf pricing.");
+    }
+    const totalAmount = Math.round(pricePerHour * slotIds.length);
+    const amountInPaise = totalAmount * 100;
 
     const keyId = process.env.RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -190,6 +221,19 @@ export const createBooking = onCall(
       razorpayOrderId: string;
       razorpaySignature: string;
     };
+
+    // ── Input validation ───────────────────────────────────────────────────
+    if (
+      !turfId || !turfName || !cityId || !slotDate ||
+      !slotStartTime || !slotEndTime || !sport ||
+      !razorpayPaymentId || !razorpayOrderId || !razorpaySignature ||
+      !slotIds || slotIds.length === 0
+    ) {
+      throw new HttpsError("invalid-argument", "Missing required booking fields.");
+    }
+    if (slotIds.length > 4) {
+      throw new HttpsError("invalid-argument", "Maximum 4 slots per booking.");
+    }
 
     // ── Recalculate totalAmount server-side ────────────────────────────────
     // Never trust the client-sent amount — fetch pricePerHour from Firestore.

@@ -114,7 +114,7 @@ service cloud.firestore {
 
       allow update: if isAuth()
         && resource.data.userId    == request.auth.uid
-        && resource.data.status    == 'pending'
+        && resource.data.status    == 'confirmed'
         && request.resource.data.status == 'cancelled'
         // cancelledAt must be set to the server timestamp — not a client value
         && request.resource.data.cancelledAt == request.time

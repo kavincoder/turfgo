@@ -23,19 +23,18 @@ class PaymentRepository {
   }
 
   /// Creates a Razorpay order server-side and returns the orderId.
-  /// Amount must be in paise (₹100 = 10000 paise).
-  /// turfId is stored server-side so createBooking can verify the payment
-  /// was for the correct turf, preventing cross-turf payment reuse.
+  /// Amount is calculated server-side from Firestore pricePerHour — the client
+  /// never specifies the amount to prevent paying ₹1 for a ₹1,000 slot.
   Future<Map<String, dynamic>> createRazorpayOrder({
-    required int amountInPaise,
-    required String receipt,
     required String turfId,
+    required List<String> slotIds,
+    required String receipt,
   }) async {
     final callable = _functions.httpsCallable('createRazorpayOrder');
     final result = await callable.call({
-      'amountInPaise': amountInPaise,
-      'receipt': receipt,
       'turfId': turfId,
+      'slotIds': slotIds,
+      'receipt': receipt,
     });
     return Map<String, dynamic>.from(result.data as Map);
   }
