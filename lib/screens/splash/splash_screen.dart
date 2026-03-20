@@ -1,55 +1,87 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/constants.dart';
 
-class SplashScreen extends StatefulWidget {
+import '../../core/constants.dart';
+import '../../providers/user_provider.dart';
+
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> {
+  Timer? _timeout;
+  bool _routed = false;
+
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 800), _routeByRole);
+
+    // Minimum splash display time
+    Future.delayed(const Duration(milliseconds: 800), _tryRoute);
+
+    // Hard timeout — if Firestore never responds, fall back after 6 seconds
+    _timeout = Timer(const Duration(seconds: 6), () {
+      _routeTo(FirebaseAuth.instance.currentUser != null ? '/home' : '/login');
+    });
   }
 
-  Future<void> _routeByRole() async {
-    if (!mounted) return;
+  @override
+  void dispose() {
+    _timeout?.cancel();
+    super.dispose();
+  }
+
+  void _tryRoute() {
+    if (!mounted || _routed) return;
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      context.go('/login');
+      _routeTo('/login');
       return;
     }
 
-    // Fetch role from Firestore to decide where to land
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
-      if (!mounted) return;
-
-      final role = doc.data()?['role'] ?? 'player';
-      switch (role) {
-        case UserRole.owner:
-          context.go('/owner');
-        case UserRole.admin:
-          context.go('/admin');
-        default:
-          context.go('/home');
+    // Check if currentUserProvider already has data loaded
+    final userAsync = ref.read(currentUserProvider);
+    userAsync.whenData((appUser) {
+      if (appUser != null) {
+        _routeByRole(appUser.role);
       }
-    } catch (_) {
-      // Fallback to player home if Firestore read fails
-      if (mounted) context.go('/home');
+      // If null doc, wait for listener below
+    });
+
+    // Listen for the first data emission from Firestore
+    ref.listenManual(currentUserProvider, (prev, next) {
+      if (_routed || !mounted) return;
+      next.whenData((appUser) {
+        _routeByRole(appUser?.role ?? UserRole.player);
+      });
+    });
+  }
+
+  void _routeByRole(String role) {
+    switch (role) {
+      case UserRole.admin:
+        _routeTo('/admin');
+      case UserRole.owner:
+        _routeTo('/owner');
+      default:
+        _routeTo('/home');
     }
+  }
+
+  void _routeTo(String path) {
+    if (_routed || !mounted) return;
+    _routed = true;
+    _timeout?.cancel();
+    context.go(path);
   }
 
   @override
