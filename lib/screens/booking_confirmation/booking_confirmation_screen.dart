@@ -168,12 +168,12 @@ class _BookingConfirmationScreenState
         ),
         (route) => route.isFirst,
       );
-    } on FirebaseFunctionsException catch (e) {
+    } on FirebaseFunctionsException catch (_) {
       if (!mounted) return;
       setState(() {
         _paymentState = _PaymentState.failed;
         _errorMessage =
-            'Payment received but booking failed. Contact support with payment ID: ${response.paymentId}. Error: ${e.message}';
+            'Payment received but booking failed. Your booking will be confirmed shortly — check My Bookings in a few minutes.';
       });
     } catch (e, st) {
       debugPrint('[BookingConfirmation] createBooking unexpected error: $e\n$st');
@@ -181,7 +181,7 @@ class _BookingConfirmationScreenState
       setState(() {
         _paymentState = _PaymentState.failed;
         _errorMessage =
-            'Payment received but booking failed. Contact support with payment ID: ${response.paymentId}';
+            'Payment received but booking failed. Your booking will be confirmed shortly — check My Bookings in a few minutes.';
       });
     }
   }
@@ -420,8 +420,8 @@ class _BookingConfirmationScreenState
                         SizedBox(height: 16.h),
                         _PriceRow(
                           label:
-                              '₹${widget.turf.pricePerHour.toInt()} × ${widget.duration} ${widget.duration == 1 ? 'hr' : 'hrs'}',
-                          value: '₹$_totalAmount',
+                              '${AppFormat.price(widget.turf.pricePerHour)} × ${widget.duration} ${widget.duration == 1 ? 'hr' : 'hrs'}',
+                          value: AppFormat.price(_totalAmount),
                         ),
                         SizedBox(height: 14.h),
                         Container(height: 1, color: AppColors.border),

@@ -145,18 +145,40 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.event_busy_rounded,
-                            size: 48.sp, color: AppColors.grey),
-                        SizedBox(height: 12.h),
+                        Container(
+                          width: 72.w,
+                          height: 72.w,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryLight,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.event_busy_rounded,
+                            size: 36.sp,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        SizedBox(height: 16.h),
                         Text(
                           _isToday(_selectedDate)
                               ? 'No bookings today'
                               : 'No bookings on this day',
                           style: TextStyle(
-                            fontSize: 15.sp,
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                            fontFamily: AppTextStyles.bodyFont,
+                          ),
+                        ),
+                        SizedBox(height: 6.h),
+                        Text(
+                          'Bookings will appear here once players reserve your turf.',
+                          style: TextStyle(
+                            fontSize: 13.sp,
                             color: AppColors.textSecondary,
                             fontFamily: AppTextStyles.bodyFont,
                           ),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
@@ -185,7 +207,7 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen> {
                             ),
                           ),
                           Text(
-                            '₹${dayEarnings.toInt()}',
+                            AppFormat.price(dayEarnings),
                             style: TextStyle(
                               fontSize: 14.sp,
                               fontWeight: FontWeight.w700,
@@ -289,7 +311,7 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen> {
                                   ),
                                 ),
                                 Text(
-                                  '₹${b.totalAmount.toInt()}',
+                                  AppFormat.price(b.totalAmount),
                                   style: TextStyle(
                                     fontSize: 16.sp,
                                     fontWeight: FontWeight.w700,

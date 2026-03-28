@@ -365,7 +365,7 @@ class _ExploreTurfCard extends StatelessWidget {
                     ),
                     SizedBox(height: 8.h),
                     Text(
-                      '₹${turf.pricePerHour.toInt()}/hr',
+                      '${AppFormat.price(turf.pricePerHour)}/hr',
                       style: TextStyle(
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w700,

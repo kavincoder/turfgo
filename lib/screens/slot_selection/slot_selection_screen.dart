@@ -429,7 +429,7 @@ class _SlotSelectionScreenState
                               borderRadius: BorderRadius.circular(20.r),
                             ),
                             child: Text(
-                              '$_duration ${_duration == 1 ? 'hour' : 'hours'}  ·  ₹${(widget.turf.pricePerHour * _duration).toInt()}',
+                              '$_duration ${_duration == 1 ? 'hour' : 'hours'}  ·  ${AppFormat.price(widget.turf.pricePerHour * _duration)}',
                               style: TextStyle(
                                 fontSize: 13.sp,
                                 fontWeight: FontWeight.w700,
@@ -455,15 +455,15 @@ class _SlotSelectionScreenState
                         child: Slider(
                           value: _duration.toDouble(),
                           min: 1,
-                          max: 6,
-                          divisions: 5,
+                          max: 4,
+                          divisions: 3,
                           onChanged: _onDurationChanged,
                         ),
                       ),
                       Row(
                         mainAxisAlignment:
                             MainAxisAlignment.spaceBetween,
-                        children: List.generate(6, (i) {
+                        children: List.generate(4, (i) {
                           final val = i + 1;
                           return Text(
                             '${val}h',
@@ -696,7 +696,7 @@ class _SlotSelectionScreenState
                 ),
                 child: Text(
                   _selectedSlotIndex != null
-                      ? 'Proceed  ·  $_slotLabel  ·  ₹${_totalPrice.toInt()}'
+                      ? 'Proceed  ·  $_slotLabel  ·  ${AppFormat.price(_totalPrice)}'
                       : 'Select a Start Time',
                 ),
               ),

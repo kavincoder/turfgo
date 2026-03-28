@@ -8,6 +8,7 @@ import '../../core/constants.dart';
 import '../../core/date_utils.dart';
 import '../../models/turf.dart';
 import '../../providers/owner_provider.dart';
+import 'owner_turf_edit_screen.dart';
 
 class OwnerTurfScreen extends ConsumerWidget {
   const OwnerTurfScreen({super.key});
@@ -30,6 +31,22 @@ class OwnerTurfScreen extends ConsumerWidget {
             color: AppColors.textPrimary,
           ),
         ),
+        actions: [
+          if (turfsAsync.valueOrNull?.isNotEmpty == true)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+              tooltip: 'Edit turf',
+              onPressed: () {
+                final turf = turfsAsync.valueOrNull!.first;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => OwnerTurfEditScreen(turf: turf),
+                  ),
+                ).then((_) => ref.invalidate(ownerTurfsProvider));
+              },
+            ),
+        ],
       ),
       body: turfsAsync.when(
         loading: () => const _ShimmerTurf(),
@@ -177,7 +194,7 @@ class _TurfDetails extends StatelessWidget {
                       child: _InfoCard(
                         icon: Icons.currency_rupee_rounded,
                         label: 'Price',
-                        value: '₹${turf.pricePerHour.toInt()}/hr',
+                        value: '${AppFormat.price(turf.pricePerHour)}/hr',
                       ),
                     ),
                     SizedBox(width: 10.w),

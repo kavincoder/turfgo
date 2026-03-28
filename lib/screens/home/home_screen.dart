@@ -453,7 +453,7 @@ class _TurfCard extends StatelessWidget {
                       text: TextSpan(
                         children: [
                           TextSpan(
-                            text: '₹${turf.pricePerHour.toInt()}',
+                            text: AppFormat.price(turf.pricePerHour),
                             style: TextStyle(
                               fontSize: 18.sp,
                               fontWeight: FontWeight.w700,

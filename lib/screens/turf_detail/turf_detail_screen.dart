@@ -192,7 +192,7 @@ class TurfDetailScreen extends ConsumerWidget {
                         text: TextSpan(
                           children: [
                             TextSpan(
-                              text: '₹${turf.pricePerHour.toInt()}',
+                              text: AppFormat.price(turf.pricePerHour),
                               style: TextStyle(
                                 fontSize: 26.sp,
                                 fontWeight: FontWeight.w700,

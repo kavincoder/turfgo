@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -86,31 +87,41 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
     final repo = ref.read(authRepositoryProvider);
 
-    await repo.verifyPhoneNumber(
-      phoneNumber: '+91${widget.phone}',
-      timeout: const Duration(seconds: 60),
-      forceResendingToken: widget.resendToken,
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await repo.signInWithCredential(credential);
-        if (mounted) context.go('/');
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        if (mounted) {
-          setState(() => _error = e.message ?? 'Failed to resend OTP.');
-        }
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        if (mounted) {
-          setState(() => _verificationId = verificationId);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('OTP resent')),
-          );
-        }
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        _verificationId = verificationId;
-      },
-    );
+    try {
+      await repo.verifyPhoneNumber(
+        phoneNumber: '+91${widget.phone}',
+        timeout: const Duration(seconds: 60),
+        forceResendingToken: widget.resendToken,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await repo.signInWithCredential(credential);
+          if (mounted) context.go('/');
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          if (mounted) {
+            setState(() => _error = e.message ?? 'Failed to resend OTP.');
+          }
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          if (mounted) {
+            setState(() => _verificationId = verificationId);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('OTP resent')),
+            );
+          }
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          _verificationId = verificationId;
+        },
+      );
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.code == 'resource-exhausted'
+              ? 'Too many OTP requests. Please try again tomorrow.'
+              : 'Something went wrong. Please try again.';
+        });
+      }
+    }
   }
 
   @override

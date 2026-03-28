@@ -112,7 +112,7 @@ class OwnerDashboardScreen extends ConsumerWidget {
                           child: _StatCard(
                             icon: Icons.currency_rupee_rounded,
                             label: "Today's Earnings",
-                            value: '₹${todayEarnings.toInt()}',
+                            value: AppFormat.price(todayEarnings),
                             iconColor: AppColors.emerald,
                           ),
                         ),
@@ -139,7 +139,7 @@ class OwnerDashboardScreen extends ConsumerWidget {
                           child: _StatCard(
                             icon: Icons.account_balance_wallet_rounded,
                             label: 'Total Earned',
-                            value: '₹${totalEarnings.toInt()}',
+                            value: AppFormat.price(totalEarnings),
                             iconColor: AppColors.purple,
                           ),
                         ),
@@ -168,20 +168,42 @@ class OwnerDashboardScreen extends ConsumerWidget {
                   if (upcoming.isEmpty)
                     Padding(
                       padding: EdgeInsets.symmetric(
-                          horizontal: 20.w, vertical: 40.h),
+                          horizontal: 20.w, vertical: 32.h),
                       child: Center(
                         child: Column(
                           children: [
-                            Icon(Icons.event_available_rounded,
-                                size: 48.sp, color: AppColors.grey),
-                            SizedBox(height: 12.h),
+                            Container(
+                              width: 72.w,
+                              height: 72.w,
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryLight,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.calendar_month_rounded,
+                                size: 36.sp,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                            SizedBox(height: 16.h),
                             Text(
                               'No upcoming bookings',
                               style: TextStyle(
-                                fontSize: 14.sp,
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                                fontFamily: AppTextStyles.bodyFont,
+                              ),
+                            ),
+                            SizedBox(height: 6.h),
+                            Text(
+                              'Share your turf to start getting bookings.',
+                              style: TextStyle(
+                                fontSize: 13.sp,
                                 color: AppColors.textSecondary,
                                 fontFamily: AppTextStyles.bodyFont,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                           ],
                         ),
@@ -357,7 +379,7 @@ class _UpcomingCard extends StatelessWidget {
             ),
           ),
           Text(
-            '₹${booking.totalAmount.toInt()}',
+            AppFormat.price(booking.totalAmount),
             style: TextStyle(
               fontSize: 16.sp,
               fontWeight: FontWeight.w700,

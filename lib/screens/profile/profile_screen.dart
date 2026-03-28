@@ -44,8 +44,291 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   Future<void> _signOut(BuildContext context) async {
-    await FirebaseAuth.instance.signOut();
-    if (context.mounted) context.go('/login');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.r)),
+        title: Text(
+          'Sign Out?',
+          style: TextStyle(
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w700,
+            fontFamily: AppTextStyles.bodyFont,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        content: Text(
+          'You will need to log in again to book turfs.',
+          style: TextStyle(
+            fontSize: 14.sp,
+            fontFamily: AppTextStyles.bodyFont,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontFamily: AppTextStyles.bodyFont,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'Sign Out',
+              style: TextStyle(
+                color: AppColors.error,
+                fontWeight: FontWeight.w700,
+                fontFamily: AppTextStyles.bodyFont,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await FirebaseAuth.instance.signOut();
+      if (context.mounted) context.go('/login');
+    }
+  }
+
+  void _showHelpSupport(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      builder: (_) => Padding(
+        padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 40.h),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+            ),
+            SizedBox(height: 20.h),
+            Text(
+              'Help & Support',
+              style: TextStyle(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.w700,
+                fontFamily: AppTextStyles.bodyFont,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            SizedBox(height: 16.h),
+            _SupportRow(
+              icon: Icons.chat_rounded,
+              label: 'WhatsApp Us',
+              value: '+91 98765 43210',
+            ),
+            SizedBox(height: 12.h),
+            _SupportRow(
+              icon: Icons.email_outlined,
+              label: 'Email',
+              value: 'support@turfgo.in',
+            ),
+            SizedBox(height: 12.h),
+            _SupportRow(
+              icon: Icons.access_time_rounded,
+              label: 'Support Hours',
+              value: 'Mon–Sat, 9 AM – 7 PM',
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              'We typically respond within 2 hours.',
+              style: TextStyle(
+                fontSize: 12.sp,
+                fontFamily: AppTextStyles.bodyFont,
+                color: AppColors.grey,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPrivacyPolicy(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        minChildSize: 0.4,
+        expand: false,
+        builder: (_, scrollCtrl) => SingleChildScrollView(
+          controller: scrollCtrl,
+          padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 40.h),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40.w,
+                  height: 4.h,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2.r),
+                  ),
+                ),
+              ),
+              SizedBox(height: 20.h),
+              Text(
+                'Privacy Policy',
+                style: TextStyle(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: AppTextStyles.bodyFont,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                'Last updated: March 2026',
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  fontFamily: AppTextStyles.bodyFont,
+                  color: AppColors.grey,
+                ),
+              ),
+              SizedBox(height: 16.h),
+              _PolicySection(
+                title: 'Data We Collect',
+                body:
+                    'We collect your phone number for authentication, your name (optional), and booking history to provide our services.',
+              ),
+              _PolicySection(
+                title: 'How We Use Your Data',
+                body:
+                    'Your data is used solely to facilitate turf bookings, send booking confirmations, and improve the app experience. We do not sell your data to third parties.',
+              ),
+              _PolicySection(
+                title: 'Payments',
+                body:
+                    'Payments are processed securely by Razorpay. TurfGo does not store your card or bank details.',
+              ),
+              _PolicySection(
+                title: 'Data Security',
+                body:
+                    'All data is encrypted in transit and stored securely on Google Firebase servers in India.',
+              ),
+              _PolicySection(
+                title: 'Contact',
+                body:
+                    'For privacy concerns, email us at privacy@turfgo.in or WhatsApp +91 98765 43210.',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showTermsOfService(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        minChildSize: 0.4,
+        expand: false,
+        builder: (_, scrollCtrl) => SingleChildScrollView(
+          controller: scrollCtrl,
+          padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 40.h),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40.w,
+                  height: 4.h,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2.r),
+                  ),
+                ),
+              ),
+              SizedBox(height: 20.h),
+              Text(
+                'Terms of Service',
+                style: TextStyle(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: AppTextStyles.bodyFont,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                'Last updated: March 2026',
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  fontFamily: AppTextStyles.bodyFont,
+                  color: AppColors.grey,
+                ),
+              ),
+              SizedBox(height: 16.h),
+              _PolicySection(
+                title: 'Acceptance',
+                body:
+                    'By using TurfGo, you agree to these terms. If you do not agree, please uninstall the app.',
+              ),
+              _PolicySection(
+                title: 'Bookings & Payments',
+                body:
+                    'All bookings are subject to slot availability. Payments are non-refundable unless a booking is cancelled by the turf owner. TurfGo charges an 8% platform fee on all bookings.',
+              ),
+              _PolicySection(
+                title: 'User Conduct',
+                body:
+                    'Users must arrive on time for bookings. Repeated no-shows may result in account suspension. Any misuse of the platform is grounds for termination.',
+              ),
+              _PolicySection(
+                title: 'Cancellations',
+                body:
+                    'Cancellation requests must be submitted through the app. Refund eligibility depends on how far in advance the cancellation is made.',
+              ),
+              _PolicySection(
+                title: 'Liability',
+                body:
+                    'TurfGo is a booking platform and is not liable for injuries, disputes, or losses that occur at turf facilities.',
+              ),
+              _PolicySection(
+                title: 'Contact',
+                body:
+                    'For terms-related queries, email legal@turfgo.in or WhatsApp +91 98765 43210.',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -84,6 +367,9 @@ class ProfileScreen extends ConsumerWidget {
           onEditName: (ctx, ref) =>
               _editName(ctx, ref, user?.name.trim() ?? ''),
           onSignOut: _signOut,
+          onHelpSupport: _showHelpSupport,
+          onPrivacyPolicy: _showPrivacyPolicy,
+          onTermsOfService: _showTermsOfService,
         ),
       ),
     );
@@ -97,6 +383,9 @@ class _Body extends ConsumerWidget {
   final VoidCallback onMyBookings;
   final Future<void> Function(BuildContext, WidgetRef) onEditName;
   final Future<void> Function(BuildContext) onSignOut;
+  final void Function(BuildContext) onHelpSupport;
+  final void Function(BuildContext) onPrivacyPolicy;
+  final void Function(BuildContext) onTermsOfService;
 
   const _Body({
     required this.user,
@@ -105,6 +394,9 @@ class _Body extends ConsumerWidget {
     required this.onMyBookings,
     required this.onEditName,
     required this.onSignOut,
+    required this.onHelpSupport,
+    required this.onPrivacyPolicy,
+    required this.onTermsOfService,
   });
 
   @override
@@ -206,19 +498,19 @@ class _Body extends ConsumerWidget {
                 _MenuItem(
                   icon: Icons.help_outline_rounded,
                   label: 'Help & Support',
-                  onTap: () {},
+                  onTap: () => onHelpSupport(context),
                 ),
                 const _Divider(),
                 _MenuItem(
                   icon: Icons.privacy_tip_outlined,
                   label: 'Privacy Policy',
-                  onTap: () {},
+                  onTap: () => onPrivacyPolicy(context),
                 ),
                 const _Divider(),
                 _MenuItem(
                   icon: Icons.description_outlined,
                   label: 'Terms of Service',
-                  onTap: () {},
+                  onTap: () => onTermsOfService(context),
                 ),
               ],
             ),
@@ -459,6 +751,88 @@ class _EditNameDialogState extends State<_EditNameDialog> {
                 ),
         ),
       ],
+    );
+  }
+}
+
+class _SupportRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _SupportRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 20.sp, color: AppColors.primary),
+        SizedBox(width: 12.w),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.sp,
+                fontFamily: AppTextStyles.bodyFont,
+                color: AppColors.grey,
+              ),
+            ),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+                fontFamily: AppTextStyles.bodyFont,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _PolicySection extends StatelessWidget {
+  final String title;
+  final String body;
+
+  const _PolicySection({required this.title, required this.body});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 16.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w700,
+              fontFamily: AppTextStyles.bodyFont,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            body,
+            style: TextStyle(
+              fontSize: 13.sp,
+              fontFamily: AppTextStyles.bodyFont,
+              color: AppColors.textSecondary,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

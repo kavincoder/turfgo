@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 /// TurfGo brand colors — Light theme
 class AppColors {
@@ -156,6 +157,16 @@ class AmenityUtils {
       default:               return Icons.check_circle_outline_rounded;
     }
   }
+}
+
+/// Price formatting
+class AppFormat {
+  AppFormat._();
+
+  static final _priceFormat = NumberFormat('#,##,###', 'en_IN');
+
+  /// Format a price as ₹1,000 (Indian numbering, no decimals)
+  static String price(num amount) => '₹${_priceFormat.format(amount.toInt())}';
 }
 
 /// Sports supported

@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -44,7 +45,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final repo = ref.read(authRepositoryProvider);
 
-    await repo.verifyPhoneNumber(
+    try {
+      await repo.verifyPhoneNumber(
       phoneNumber: '+91$phone',
       timeout: const Duration(seconds: 60),
       verificationCompleted: (PhoneAuthCredential credential) async {
@@ -72,6 +74,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       },
       codeAutoRetrievalTimeout: (String verificationId) {},
     );
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _error = e.code == 'resource-exhausted'
+              ? 'Too many OTP requests. Please try again tomorrow.'
+              : 'Something went wrong. Please try again.';
+        });
+      }
+    }
   }
 
   @override

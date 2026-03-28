@@ -83,7 +83,8 @@ class BookingsScreen extends ConsumerWidget {
             padding:
                 EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
             itemCount: upcoming.length,
-            itemBuilder: (_, i) => _BookingCard(booking: upcoming[i]),
+            itemBuilder: (_, i) =>
+                _BookingCard(booking: upcoming[i], today: today),
           );
         },
       ),
@@ -93,146 +94,356 @@ class BookingsScreen extends ConsumerWidget {
 
 class _BookingCard extends StatelessWidget {
   final Booking booking;
+  final String today;
 
-  const _BookingCard({required this.booking});
+  const _BookingCard({required this.booking, required this.today});
 
   Color get _statusColor => BookingStatus.color(booking.status);
   String get _statusLabel => BookingStatus.label(booking.status);
-
   String get _formattedDate => TurfDateUtils.formatDate(booking.slotDate);
-
   String get _sportEmoji => TurfDateUtils.sportEmoji(booking.sport);
+  bool get _isFuture => booking.slotDate.compareTo(today) > 0;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 12.h),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+  void _showDetails(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16.r),
-        child: IntrinsicHeight(
-          child: Row(
-            children: [
-              Container(width: 4.w, color: _statusColor),
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.all(16.w),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(_sportEmoji,
-                              style: TextStyle(fontSize: 22.sp)),
-                          SizedBox(width: 10.w),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  booking.turfName.isNotEmpty
-                                      ? booking.turfName
-                                      : 'TurfGo Booking',
-                                  style: TextStyle(
-                                    fontSize: 15.sp,
-                                    fontWeight: FontWeight.w700,
-                                    fontFamily: AppTextStyles.bodyFont,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                SizedBox(height: 2.h),
-                                Text(
-                                  booking.sport,
-                                  style: TextStyle(
-                                    fontSize: 12.sp,
-                                    fontFamily: AppTextStyles.bodyFont,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(width: 8.w),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 10.w, vertical: 4.h),
-                            decoration: BoxDecoration(
-                              color:
-                                  _statusColor.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(20.r),
-                            ),
-                            child: Text(
-                              _statusLabel,
-                              style: TextStyle(
-                                fontSize: 11.sp,
-                                fontWeight: FontWeight.w600,
-                                fontFamily: AppTextStyles.bodyFont,
-                                color: _statusColor,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 12.h),
-                      Divider(color: AppColors.border, height: 1),
-                      SizedBox(height: 12.h),
-                      Row(
-                        children: [
-                          _InfoChip(
-                            icon: Icons.calendar_today_rounded,
-                            label: _formattedDate,
-                          ),
-                          SizedBox(width: 12.w),
-                          _InfoChip(
-                            icon: Icons.access_time_rounded,
-                            label:
-                                TurfDateUtils.formatTimeRange(booking.slotStartTime, booking.slotEndTime),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 8.h),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '₹${booking.totalAmount.toInt()}',
-                            style: TextStyle(
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w700,
-                              fontFamily: AppTextStyles.bodyFont,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          Text(
-                            'Advance: ₹${booking.advancePaid.toInt()}',
-                            style: TextStyle(
-                              fontSize: 12.sp,
-                              fontFamily: AppTextStyles.bodyFont,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+      builder: (_) => Padding(
+        padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 40.h),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+            ),
+            SizedBox(height: 20.h),
+            Row(
+              children: [
+                Text(_sportEmoji, style: TextStyle(fontSize: 28.sp)),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Text(
+                    booking.turfName.isNotEmpty
+                        ? booking.turfName
+                        : 'TurfGo Booking',
+                    style: TextStyle(
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: AppTextStyles.bodyFont,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: _statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20.r),
+                  ),
+                  child: Text(
+                    _statusLabel,
+                    style: TextStyle(
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: AppTextStyles.bodyFont,
+                      color: _statusColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 20.h),
+            _DetailRow(label: 'Sport', value: booking.sport),
+            _DetailRow(label: 'Date', value: _formattedDate),
+            _DetailRow(
+              label: 'Time',
+              value: TurfDateUtils.formatTimeRange(
+                  booking.slotStartTime, booking.slotEndTime),
+            ),
+            _DetailRow(
+                label: 'Amount Paid',
+                value: AppFormat.price(booking.advancePaid)),
+            _DetailRow(
+                label: 'Total',
+                value: AppFormat.price(booking.totalAmount)),
+            _DetailRow(
+              label: 'Booking ID',
+              value: booking.id.isNotEmpty
+                  ? booking.id.substring(0, 8).toUpperCase()
+                  : '—',
+            ),
+            if (_isFuture &&
+                booking.status == BookingStatus.confirmed) ...[
+              SizedBox(height: 20.h),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showCancelInfo(context);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: const BorderSide(color: AppColors.error),
+                    minimumSize: Size(double.infinity, 48.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                  ),
+                  child: Text(
+                    'Cancel Booking',
+                    style: TextStyle(
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: AppTextStyles.bodyFont,
+                    ),
                   ),
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCancelInfo(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.r)),
+        title: Text(
+          'Cancel Booking',
+          style: TextStyle(
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w700,
+            fontFamily: AppTextStyles.bodyFont,
+            color: AppColors.textPrimary,
           ),
         ),
+        content: Text(
+          'Self-serve cancellation is coming soon.\n\nTo cancel now, WhatsApp us at +91 98765 43210 with your Booking ID: ${booking.id.isNotEmpty ? booking.id.substring(0, 8).toUpperCase() : booking.id}',
+          style: TextStyle(
+            fontSize: 14.sp,
+            fontFamily: AppTextStyles.bodyFont,
+            color: AppColors.textSecondary,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'OK',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+                fontFamily: AppTextStyles.bodyFont,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _showDetails(context),
+      child: Container(
+        margin: EdgeInsets.only(bottom: 12.h),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16.r),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16.r),
+          child: IntrinsicHeight(
+            child: Row(
+              children: [
+                Container(width: 4.w, color: _statusColor),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_sportEmoji,
+                                style: TextStyle(fontSize: 22.sp)),
+                            SizedBox(width: 10.w),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    booking.turfName.isNotEmpty
+                                        ? booking.turfName
+                                        : 'TurfGo Booking',
+                                    style: TextStyle(
+                                      fontSize: 15.sp,
+                                      fontWeight: FontWeight.w700,
+                                      fontFamily: AppTextStyles.bodyFont,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  SizedBox(height: 2.h),
+                                  Text(
+                                    booking.sport,
+                                    style: TextStyle(
+                                      fontSize: 12.sp,
+                                      fontFamily: AppTextStyles.bodyFont,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(width: 8.w),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 10.w, vertical: 4.h),
+                              decoration: BoxDecoration(
+                                color: _statusColor.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(20.r),
+                              ),
+                              child: Text(
+                                _statusLabel,
+                                style: TextStyle(
+                                  fontSize: 11.sp,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: AppTextStyles.bodyFont,
+                                  color: _statusColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 12.h),
+                        Divider(color: AppColors.border, height: 1),
+                        SizedBox(height: 12.h),
+                        Row(
+                          children: [
+                            _InfoChip(
+                              icon: Icons.calendar_today_rounded,
+                              label: _formattedDate,
+                            ),
+                            SizedBox(width: 12.w),
+                            _InfoChip(
+                              icon: Icons.access_time_rounded,
+                              label: TurfDateUtils.formatTimeRange(
+                                  booking.slotStartTime,
+                                  booking.slotEndTime),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 8.h),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              AppFormat.price(booking.totalAmount),
+                              style: TextStyle(
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: AppTextStyles.bodyFont,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                Text(
+                                  'Tap for details',
+                                  style: TextStyle(
+                                    fontSize: 11.sp,
+                                    fontFamily: AppTextStyles.bodyFont,
+                                    color: AppColors.grey,
+                                  ),
+                                ),
+                                SizedBox(width: 2.w),
+                                Icon(Icons.chevron_right_rounded,
+                                    size: 14.sp, color: AppColors.grey),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _DetailRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12.h),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110.w,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13.sp,
+                fontFamily: AppTextStyles.bodyFont,
+                color: AppColors.grey,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
+                fontFamily: AppTextStyles.bodyFont,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
