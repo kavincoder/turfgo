@@ -1,91 +1,288 @@
 # CLAUDE.md
 
 This file provides guidance to Claude Code when working with this repository.
+Read this entire file before writing any code. Every rule here exists for a reason.
+
+---
 
 ## Project Overview
 
-TurfGo is a turf booking marketplace app — players discover and book sports turfs, owners manage their listings, admins oversee the platform. Launching in Madurai first, then expanding across Tamil Nadu.
+**TurfGo** is a sports turf booking marketplace app. Players discover and book sports turfs, owners manage their listings, and admins oversee the platform. Launching in Madurai first, then expanding across Tamil Nadu.
 
-- **Stack:** Flutter (Dart ^3.8.1) + Firebase (Firestore, Auth, Storage) + Cloud Functions (TypeScript, Node 20, v2) + Razorpay payments
-- **State management:** Riverpod + repository pattern
-- **Navigation:** GoRouter only — never use Navigator.push directly
-- **Roles:** player, owner, admin (use UserRole constants, never magic strings)
-- **Version:** 1.0.0+1
+- **Stack:** Flutter (Dart ^3.8.1) + Firebase (Firestore, Auth, Storage, Crashlytics, App Check) + Cloud Functions (TypeScript, Node 20, v2) + Razorpay payments
+- **State management:** Riverpod 2.x + repository pattern
+- **Navigation:** GoRouter only — never use `Navigator.push` directly
+- **Roles:** `player`, `owner`, `admin` — use `UserRole` constants, never magic strings
+- **Version:** 1.0.0+1 (update build number on every release)
+- **Platforms:** iOS + Android, portrait-locked
 
-## Architecture
+---
 
-- All date/time/formatting → `lib/core/date_utils.dart` (TurfDateUtils)
-- All colors → `lib/core/colors.dart` (AppColors)
-- All constants (roles, sports, booking status) → `lib/core/constants.dart`
-- Amenity icons → `lib/core/amenity_utils.dart` (AmenityUtils)
-- Provider → Repository → Firestore (never call Firestore directly from widgets)
-- Cloud Functions are the ONLY place bookings, slots, transactions, and payouts are written — never allow direct client writes to these collections
+## Architecture — Hard Rules
+
+### Data flow
+```
+Widget → Provider (Riverpod) → Repository → Firestore / Cloud Function
+```
+- Never call Firestore directly from a widget or screen
+- Never call Cloud Functions directly from a widget — go through `payment_repository.dart` or the relevant repository
+- Providers are the only state layer — no `setState` in screens that deal with server data
+
+### Core utilities — always use these, never duplicate
+| What you need | Where it lives |
+|---|---|
+| Date/time/slot formatting | `lib/core/date_utils.dart` — `TurfDateUtils` |
+| Colors | `lib/core/constants.dart` — `AppColors` |
+| Text styles | `lib/core/constants.dart` — `AppTextStyles` |
+| Price formatting | `lib/core/constants.dart` — `AppFormat.price(amount)` |
+| Payment constants | `lib/core/constants.dart` — `AppPayment` |
+| Amenity icons and labels | `lib/core/amenity_utils.dart` — `AmenityUtils` |
+| Sport labels and emojis | `lib/core/date_utils.dart` — `TurfDateUtils.sportEmoji()` |
+| Role constants | `lib/core/constants.dart` — `UserRole` |
+| Booking status constants | `lib/core/constants.dart` — `BookingStatus` |
+
+### What writes where
+- `bookings`, `slots`, `transactions`, `payouts`, `otpAttempts`, `pendingOrders`, `referrals` — **Cloud Functions only**. Never write to these from the client under any circumstances.
+- `turfs` (limited fields) — owner can update `name`, `area`, `address`, `sports`, `amenities`, `openTime`, `closeTime` via direct Firestore write. Cannot change `pricePerHour`, `ownerId`, `cityId`, `rating`, `isActive`.
+- `users` — user can update own `name`, `cityId` only. Cannot change `role` or `phoneNumber`.
+- `ownerRequests` — written by `submitOwnerRequest()` Cloud Function only.
+
+---
 
 ## Common Commands
 
-- **Run the app:** `flutter run`
-- **Run tests:** `flutter test`
-- **Analyze code:** `flutter analyze`
-- **Get dependencies:** `flutter pub get`
-- **Format code:** `dart format .`
-- **Deploy rules:** `firebase deploy --only firestore:rules`
-- **Deploy functions:** `firebase deploy --only functions`
-- **Build functions:** `npm --prefix functions run build`
+```bash
+# Run app against real Firebase
+flutter run
+
+# Run app against local emulator
+flutter run --dart-define=USE_EMULATOR=true
+
+# Lint check
+flutter analyze
+
+# Run tests
+flutter test
+
+# Format all Dart code
+dart format .
+
+# Install Flutter dependencies
+flutter pub get
+
+# Build Cloud Functions (TypeScript → JavaScript)
+npm --prefix functions run build
+
+# Deploy Firestore rules
+firebase deploy --only firestore:rules
+
+# Deploy Firestore indexes
+firebase deploy --only firestore:indexes
+
+# Deploy Cloud Functions
+firebase deploy --only functions
+
+# Deploy everything
+firebase deploy
+
+# Start local emulator
+firebase emulators:start
+```
+
+---
 
 ## Security — Non-Negotiable Rules
 
-These are hard rules. Never violate them regardless of convenience.
+These rules are absolute. Never violate them for convenience, speed, or any other reason.
+If a task would require breaking one of these rules, stop and explain why instead of proceeding.
 
-### API Keys & Secrets
-- Razorpay `KEY_ID` and `KEY_SECRET` live in **Firebase Secret Manager only** — never in code, `.env` files, logs, or comments
-- Never log payment IDs, order IDs, or signatures to console in production
-- Never commit any file containing real API keys
-- Firebase config (`firebase_options.dart`) is gitignored — never commit it
+### 1. Secrets and API Keys
 
-### Cloud Functions
-- Every CF must check `request.auth` first — throw `unauthenticated` immediately if null
-- Never trust `totalAmount` or `advancePaid` from the client — always recalculate from Firestore `pricePerHour` server-side
-- Always verify Razorpay HMAC signature before creating a booking
-- Slot lock must be verified inside the same transaction as booking creation
-- Rate limiting must be implemented on auth-related functions (OTP, registration)
-- All CF input must be validated — reject missing fields with `invalid-argument`
-- Never expose internal error details to the client — log server-side, return generic message to client
+- **Razorpay `KEY_ID`, `KEY_SECRET`, `WEBHOOK_SECRET`** live in Firebase Secret Manager only — never in source code, never in `.env` files committed to git, never in logs, never in comments
+- `functions/.secret.local` is gitignored and is used only for local emulator development with test keys
+- `lib/firebase_options.dart` — Firebase API keys here are public client identifiers (same as a Google Maps API key in a web app). They are safe in source and safe in the binary. Do not panic about them.
+- Never add any real secret to any file that is or could be committed to git
+- Never log `paymentId`, `orderId`, `signature`, `KEY_SECRET`, or `WEBHOOK_SECRET` to console — not even in debug builds
 
-### Firestore Rules
-- Rules are production-grade and deployed — never loosen them
-- `bookings`, `slots`, `transactions`, `payouts`, `otpAttempts`, `referrals` are CF-only writes (`allow write: if false`)
-- Role escalation is blocked at both create and update on the `users` collection
-- Catch-all deny is in place — any unlisted collection is fully locked by default
-- Never add `allow write: if isAuth()` to any sensitive collection
+### 2. Cloud Functions — Every Function Must Follow These Rules
 
-### Client-Side
-- Never use magic strings for roles — always use `UserRole.player`, `UserRole.owner`, `UserRole.admin`
-- Never use magic strings for booking status — always use `BookingStatus` constants
-- Never silent-catch errors — always `catch (e, st) { debugPrint(...) }`
-- Phone validation: `RegExp(r'^[6-9]\d{9}$')` — never skip this
+- Check `request.auth` first — throw `functions.https.HttpsError('unauthenticated', ...)` immediately if null. No exceptions.
+- Never trust any amount, price, or total from the client. Always recalculate from Firestore `pricePerHour` server-side.
+- Always verify Razorpay HMAC-SHA256 signature before creating a booking: `sha256Hmac(orderId + '|' + paymentId, KEY_SECRET)`
+- Verify slot locks inside the same Firestore transaction as booking creation — never as separate reads
+- Validate all input fields. Reject missing or malformed fields with `invalid-argument` before touching Firestore
+- Never expose internal error messages to the client — `console.error()` server-side, return a generic message to the client
+- Rate limit all auth-related functions — OTP is 3 attempts per phone per UTC day (atomic Firestore transaction)
+- All financial operations must be idempotent — check if a booking already exists for an orderId before creating one
 
-### Before Public Launch
-- Firebase App Check must be configured
-- Razorpay webhook must be implemented
-- All 3 critical CF bugs must be fixed (totalAmount recalculation, receipt null crash, submitOwnerRequest lock bug)
+### 3. Firestore Rules
+
+- Rules are production-grade. Never loosen them.
+- The catch-all deny (`/{document=**} → allow read, write: if false`) must always remain at the bottom
+- Never add `allow write: if isAuth()` to any collection that holds financial or role data
+- `bookings`, `slots`, `transactions`, `payouts`, `otpAttempts`, `referrals`, `pendingOrders` are locked to Cloud Functions: `allow write: if false`
+- Role escalation is blocked at both create (`role == 'player'`) and update (no `role` field allowed) on `users`
+- An owner cannot change `pricePerHour`, `ownerId`, `cityId`, `rating`, or `isActive` on their own turf
+
+### 4. Client-Side Rules
+
+- Never use magic strings for roles — always `UserRole.player`, `UserRole.owner`, `UserRole.admin`
+- Never use magic strings for booking status — always `BookingStatus.confirmed`, `BookingStatus.cancelled`, etc.
+- Never silent-catch errors — always `catch (e, st) { debugPrint('Context: $e\n$st'); }`
+- Phone number validation before any OTP call: `RegExp(r'^[6-9]\d{9}$')` — 10 digits, starts 6–9
+- Never store Razorpay credentials on the client — the app never holds `KEY_SECRET`
+- Never bypass App Check in production builds
+
+### 5. Before Any Real User Touches the App
+
+These must all be true before exposing the app to anyone outside development:
+- [ ] Firebase Blaze plan active and Cloud Functions deployed
+- [ ] Razorpay webhook URL registered in Razorpay dashboard
+- [ ] Firebase App Check enforcement enabled in Firebase Console
+- [ ] Real support phone number replacing all placeholder numbers
+- [ ] iOS bundle ID updated from `com.example.turfgo`
+- [ ] Crashlytics initialised in `main.dart`
+
+---
+
+## Payment Flow Reference
+
+Understanding this is required before touching any payment-related code.
+
+```
+1. lockSlot()  ← Firestore transaction
+   - Checks: slot.isBooked == false, slot.lockedUntil < now (or lockedBy == userId)
+   - Sets: lockedBy=userId, lockedUntil=now+5min
+   - Max 4 slots per booking
+
+2. createRazorpayOrder()  ← Calls Razorpay API
+   - Recalculates amount: pricePerHour * slotCount (from Firestore, not client)
+   - Validates slotDate: not in past, within 7 days
+   - Creates pendingOrders doc (30-min expiry)
+   - Returns orderId + keyId to client
+
+3. Razorpay Flutter SDK  ← Client-side only
+   - Player completes payment
+   - Returns: orderId, paymentId, signature
+
+4. createBooking()  ← Firestore transaction
+   - Re-verifies slot lock (lockedBy == userId, lockedUntil > now)
+   - Verifies HMAC-SHA256: sha256(orderId|paymentId, KEY_SECRET) == signature
+   - Recalculates amount server-side (third verification)
+   - Creates booking, marks slots isBooked=true, deletes pendingOrder
+
+5. razorpayWebhook()  ← Backup path
+   - Triggered by Razorpay on payment.captured
+   - Verifies X-Razorpay-Signature via HMAC-SHA256 on raw body
+   - Idempotency: skips if booking already exists for orderId
+   - Creates booking if createBooking() was missed (network drop, app crash)
+```
+
+---
+
+## Firestore Collections Reference
+
+| Collection | Purpose | Who Reads | Who Writes |
+|---|---|---|---|
+| `users/{uid}` | User profile + role | Self, admin | Self (name/cityId), CF (role on upgrade) |
+| `cities/{id}` | City config | All auth | Admin |
+| `turfs/{id}` | Turf listings | All auth | Admin, owner (limited fields) |
+| `turfs/{id}/slots/{id}` | 30-min slot availability | All auth | CFs only |
+| `bookings/{id}` | Booking records | Player + owner + admin | CFs only (cancel: player) |
+| `reviews/{id}` | Turf reviews | All auth | Auth user create (admin update/delete) |
+| `transactions/{id}` | Payment records | Self + admin | CFs only |
+| `payouts/{id}` | Owner payout records | Owner + admin | CFs only |
+| `otpAttempts/{phone}` | OTP rate limit tracker | — | CFs only |
+| `pendingOrders/{id}` | In-flight payment state | Self | CFs only |
+| `ownerRequests/{id}` | Turf owner applications | Self + admin | CFs only |
+| `referrals/{id}` | Referral tracking | Self | CFs only |
+| `waitlist/{id}` | Pre-launch waitlist | Admin | Public create |
+
+---
+
+## UI / UX Rules
+
+- Use `flutter_screenutil` for all dimensions and font sizes — `18.sp`, `16.h`, `20.w`
+- Use `AppColors.*` for all colors — never hardcode hex values
+- Use `AppTextStyles.*` for text — never hardcode `TextStyle` inline in screens
+- Use `AppFormat.price(amount)` for all rupee amounts — outputs `₹1,00,000` (Indian numbering)
+- Loading states: use `Shimmer` widget from the `shimmer` package for list skeletons
+- Error states: always show a user-readable message — never show raw exception text
+- Empty states: every list screen must have an empty state with an icon and descriptive text
+- All modals: use `showModalBottomSheet` for detail views, `showDialog` for confirmations
+- Back navigation: every screen must have a way back — never strand the user
+
+---
+
+## Known Issues and Active Constraints
+
+### Blocked on Firebase Blaze Plan
+The following Cloud Functions are written and tested locally but **not deployed**:
+- `lockSlot()` — slot locking before payment
+- `createRazorpayOrder()` — Razorpay order creation
+- `createBooking()` — booking creation post-payment
+- `razorpayWebhook()` — payment capture backup
+- `checkOtpRateLimit()` — OTP rate limiting
+- `submitOwnerRequest()` — owner registration
+
+Until Blaze is activated, no booking can complete in production. Do not add features that depend on these functions being deployed — fix the deployment first.
+
+### Not Yet Built (Do Not Mark as Complete)
+- Self-serve booking cancellation (currently shows WhatsApp placeholder)
+- Push notifications (firebase_messaging imported, no logic implemented)
+- Reviews write path (model + provider exist, no submit UI)
+- Payout flow for owners (Firestore rules define the collection, nothing else)
+- City selector for players
+- Turf photo upload for owners (image_picker imported, not used)
+- Referral system (Firestore rules exist, no code)
+
+### Placeholder Values That Must Be Replaced Before Launch
+- Support phone: `+91 98765 43210` — appears in `profile_screen.dart` and `bookings_screen.dart`
+- iOS bundle ID: `com.example.turfgo` — must change in Xcode before App Store submission
+- Android application ID: `com.example.turfgo` — must change in `android/app/build.gradle`
+
+---
 
 ## Business Context
 
-- **Launch city:** Madurai (approx. 30 turfs in the city)
-- **Expansion plan:** Trichy → Coimbatore → Chennai → other TN cities
-- **Slot prices:** Vary per turf — never assume a fixed price
-- **Commission:** Configurable per business decision — currently 8% per booking
-- **Owner agreement:** Owners in Madurai have verbally agreed to commission model
-- **Competition:** Hudle and Playo operate in metros — stay under the radar until 3+ cities
+- **Launch city:** Madurai (~40 turfs, targeting 25–30 onboarded)
+- **Expansion plan:** Trichy → Coimbatore → Chennai → other Tamil Nadu cities
+- **Commission:** 8% per booking (`AppPayment.commissionRate`)
+- **Advance payment:** 20% of total (`AppPayment.advanceRate`)
+- **Slot duration:** 30 minutes each
+- **Max slots per booking:** 4 (2 hours max)
+- **Booking window:** Up to 7 days in advance
+- **Slot lock:** 5 minutes (expires automatically if payment not completed)
+- **Sports Phase 1:** Football, Cricket
+- **Sports Phase 2:** Badminton, Tennis (defined in constants, not yet in owner onboarding UI)
+- **Competitor awareness:** Playo operates in metros — stay under the radar until 3+ cities
+- **Pricing:** Varies per turf — never assume a fixed price or hardcode one
 
-## Current Status
+---
+
+## Current Status (as of March 2026)
 
 | Item | Status |
 |---|---|
-| Firestore security rules | Deployed and production-grade |
-| Cloud Functions (lockSlot, createRazorpayOrder, createBooking) | Written, NOT deployed |
-| Firebase Blaze plan | Pending activation |
-| Razorpay | Test mode only, not verified |
-| Razorpay webhook | Not implemented |
-| App Check | Not configured |
-| CI/CD | Not set up |
+| Flutter app UI (player, owner, admin) | Complete |
+| Firestore security rules | Production-grade, deployed |
+| Cloud Functions source code | Written (968 lines TypeScript) |
+| Cloud Functions deployed | NOT deployed (Blaze plan pending) |
+| Razorpay integration | Test mode, order creation + HMAC verification written |
+| Razorpay webhook | Written, NOT deployed, NOT registered in Razorpay dashboard |
+| OTP rate limiting | Written in CF, NOT deployed |
+| Firebase App Check | Configured in code, enforcement NOT enabled in Firebase Console |
+| Firebase Crashlytics | Imported in pubspec, NOT initialised in main.dart |
+| Firebase Analytics | NOT configured |
+| Firebase Local Emulator | Configured and working (`--dart-define=USE_EMULATOR=true`) |
+| Owner turf edit screen | Complete (`owner_turf_edit_screen.dart`) |
+| Booking detail sheet | Complete (tappable cards, cancel dialog) |
+| Price formatting | Complete (AppFormat.price, Indian numbering across all screens) |
+| CI/CD pipeline | NOT set up |
+| iOS bundle ID | `com.example.turfgo` — placeholder |
+| Android application ID | `com.example.turfgo` — placeholder |
+| README.md | Updated and complete |
+| Self-serve cancellation | NOT built |
+| Payout flow | NOT built |
+| Push notifications | NOT built |
+| Reviews write path | NOT built |
