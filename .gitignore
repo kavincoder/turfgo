@@ -48,19 +48,44 @@ app.*.map.json
 .claude/
 
 # === TURFGO SECURITY — NEVER COMMIT THESE ===
+# Env / secrets
 .env
 *.env
+.env.*
 .env.local
 .env.production
+functions/.env
+functions/.secret.local
+
+# Firebase credentials
 google-services.json
 GoogleService-Info.plist
+lib/firebase_options.dart
+*serviceAccount*.json
+serviceAccount.json
+firebase-adminsdk*.json
+
+# Android signing
 key.properties
 *.jks
 *.keystore
-serviceAccount.json
-*serviceAccount*.json
-functions/.env
+android/app/*.jks
+android/app/*.keystore
+
+# Apple / iOS signing
+*.p8
+*.p12
+*.pem
+*.cer
+*.mobileprovision
+
+# Node / Functions
 functions/node_modules/
-lib/firebase_options.dart
+
+# Audit + generated reports (not app code)
+*.pdf
+generate_audit*.py
+
+# Logs
 *.log
 pglite-debug.log

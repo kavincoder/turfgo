@@ -104,6 +104,35 @@ If a task would require breaking one of these rules, stop and explain why instea
 - Never add any real secret to any file that is or could be committed to git
 - Never log `paymentId`, `orderId`, `signature`, `KEY_SECRET`, or `WEBHOOK_SECRET` to console — not even in debug builds
 
+### 2. Git Commit Safety — MANDATORY PRE-COMMIT CHECKLIST
+
+Before every `git add` + `git commit`, Claude MUST verify none of the following are being staged:
+
+| File / Pattern | Why it must never be committed |
+|---|---|
+| `.env`, `.env.*`, `*.env` | Contains secrets / API keys |
+| `functions/.secret.local` | Razorpay test credentials |
+| `GoogleService-Info.plist` | Firebase iOS config with private API key |
+| `google-services.json` | Firebase Android config with private API key |
+| `*.p8`, `*.p12`, `*.pem`, `*.key` | Apple / SSL private keys |
+| `serviceAccountKey*.json` | Firebase admin SDK private key — full DB access |
+| `*.keystore`, `*.jks` | Android signing keys |
+| `android/key.properties` | Android signing credentials |
+| Any file containing `KEY_SECRET`, `WEBHOOK_SECRET`, or `password` as a hardcoded string | Raw credentials in code |
+
+**How to check before committing:**
+```bash
+# See exactly what is staged before committing
+git diff --cached --name-only
+
+# Check staged content for secrets
+git diff --cached | grep -iE "(key_secret|webhook_secret|password\s*=|api_key\s*=)"
+```
+
+If any of the above are found — **stop immediately, do not commit, tell Kavin.**
+
+Only commit Dart/Flutter source files, `pubspec.yaml`, `pubspec.lock`, `analysis_options.yaml`, `firestore.rules`, `firestore.indexes.json`, `firebase.json`, and `functions/src/*.ts`. When in doubt, don't stage it.
+
 ### 2. Cloud Functions — Every Function Must Follow These Rules
 
 - Check `request.auth` first — throw `functions.https.HttpsError('unauthenticated', ...)` immediately if null. No exceptions.
