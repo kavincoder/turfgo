@@ -19,10 +19,16 @@ class AuthRepository {
     int? forceResendingToken,
   }) async {
     // Check rate limit server-side before triggering Firebase Auth OTP.
-    // Throws FirebaseFunctionsException with code resource-exhausted if blocked.
-    await FirebaseFunctions.instance
-        .httpsCallable('checkOtpRateLimit')
-        .call({'phone': phoneNumber});
+    // Degrades gracefully if the Cloud Function is not yet deployed.
+    try {
+      await FirebaseFunctions.instance
+          .httpsCallable('checkOtpRateLimit')
+          .call({'phone': phoneNumber});
+    } on FirebaseFunctionsException catch (e) {
+      // resource-exhausted = rate limit hit → block the OTP
+      // anything else (not-found = CF not deployed, internal, etc.) → allow through
+      if (e.code == 'resource-exhausted') rethrow;
+    }
 
     return _auth.verifyPhoneNumber(
       phoneNumber: phoneNumber,
@@ -58,6 +64,16 @@ class AuthRepository {
   }
 
   Future<void> ensureUserDoc(User user) => _createUserDocIfNeeded(user);
+
+  /// Signs in a turf owner using username + password.
+  /// Internally converts [username] → [username]@turfgo.in so owners never
+  /// see or type the email format — they only know their short username.
+  Future<void> signInWithEmailPassword(
+      String username, String password) async {
+    final email = '$username@turfgo.in';
+    await _auth.signInWithEmailAndPassword(email: email, password: password);
+    // No _createUserDocIfNeeded — owner docs are created manually by Kavin.
+  }
 
   Future<void> signOut() => _auth.signOut();
 }

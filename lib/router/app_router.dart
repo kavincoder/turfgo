@@ -6,6 +6,7 @@ import '../screens/auth/otp_screen.dart';
 import '../screens/admin/admin_shell.dart';
 import '../screens/owner/owner_shell.dart';
 import '../screens/shell/main_shell.dart';
+import '../screens/auth/owner_login_screen.dart';
 import '../screens/splash/splash_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -34,6 +35,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             resendToken: extra['resendToken'] as int?,
           );
         },
+      ),
+      GoRoute(
+        path: '/owner-login',
+        builder: (context, state) => const OwnerLoginScreen(),
       ),
       GoRoute(
         path: '/home',

@@ -51,6 +51,11 @@ class OwnerDashboardScreen extends ConsumerWidget {
               .where((b) => b.status == BookingStatus.confirmed)
               .fold<double>(0, (sum, b) => sum + b.totalAmount);
 
+          // All-time cancelled bookings count
+          final cancelledCount = allBookings
+              .where((b) => b.status == BookingStatus.cancelled)
+              .length;
+
           return SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -143,6 +148,27 @@ class OwnerDashboardScreen extends ConsumerWidget {
                             iconColor: AppColors.purple,
                           ),
                         ),
+                      ],
+                    ),
+                  ),
+
+                  SizedBox(height: 12.h),
+
+                  // ── Cancelled stat ──────────────────────────
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _StatCard(
+                            icon: Icons.cancel_rounded,
+                            label: 'Cancelled',
+                            value: '$cancelledCount',
+                            iconColor: AppColors.error,
+                          ),
+                        ),
+                        SizedBox(width: 12.w),
+                        const Expanded(child: SizedBox()),
                       ],
                     ),
                   ),

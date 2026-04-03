@@ -6,10 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants.dart';
 import '../../models/app_user.dart';
-import '../../models/owner_request.dart';
-import '../../providers/owner_request_provider.dart';
 import '../../providers/user_provider.dart';
-import '../owner_registration/owner_registration_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   final VoidCallback onMyBookings;
@@ -135,19 +132,19 @@ class ProfileScreen extends ConsumerWidget {
             _SupportRow(
               icon: Icons.chat_rounded,
               label: 'WhatsApp Us',
-              value: '+91 98765 43210',
+              value: AppConfig.supportWhatsApp,
             ),
             SizedBox(height: 12.h),
             _SupportRow(
               icon: Icons.email_outlined,
               label: 'Email',
-              value: 'support@turfgo.in',
+              value: AppConfig.supportEmail,
             ),
             SizedBox(height: 12.h),
             _SupportRow(
               icon: Icons.access_time_rounded,
               label: 'Support Hours',
-              value: 'Mon–Sat, 9 AM – 7 PM',
+              value: AppConfig.supportHours,
             ),
             SizedBox(height: 16.h),
             Text(
@@ -236,7 +233,7 @@ class ProfileScreen extends ConsumerWidget {
               _PolicySection(
                 title: 'Contact',
                 body:
-                    'For privacy concerns, email us at privacy@turfgo.in or WhatsApp +91 98765 43210.',
+                    'For privacy concerns, email us at ${AppConfig.privacyEmail} or WhatsApp ${AppConfig.supportWhatsApp}.',
               ),
             ],
           ),
@@ -322,7 +319,7 @@ class ProfileScreen extends ConsumerWidget {
               _PolicySection(
                 title: 'Contact',
                 body:
-                    'For terms-related queries, email legal@turfgo.in or WhatsApp +91 98765 43210.',
+                    'For terms-related queries, email ${AppConfig.legalEmail} or WhatsApp ${AppConfig.supportWhatsApp}.',
               ),
             ],
           ),
@@ -479,11 +476,6 @@ class _Body extends ConsumerWidget {
 
           SizedBox(height: 28.h),
 
-          // ── Owner registration — visible to everyone except admins ──────────
-          // Owners see their request status; players see the apply CTA;
-          // null users (doc not yet created) also see the CTA.
-          if (user?.role != UserRole.admin) _OwnerRegistrationBanner(),
-
           // ── Menu ──────────────────────────────────────────────
           Container(
             color: Colors.white,
@@ -515,6 +507,70 @@ class _Body extends ConsumerWidget {
               ],
             ),
           ),
+
+          SizedBox(height: 20.h),
+
+          // ── Owner portal login — visible to players only ──────
+          if (user?.role != UserRole.admin && user?.role != UserRole.owner)
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w),
+              child: GestureDetector(
+                onTap: () => context.push('/owner-login'),
+                child: Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14.r),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.35)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36.w,
+                        height: 36.w,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight,
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                        child: Icon(
+                          Icons.storefront_rounded,
+                          color: AppColors.primary,
+                          size: 18.sp,
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Turf Owner?',
+                              style: TextStyle(
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: AppTextStyles.bodyFont,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              'Login to your owner dashboard',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                fontFamily: AppTextStyles.bodyFont,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios_rounded,
+                          size: 14.sp, color: AppColors.grey),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
           SizedBox(height: 24.h),
 
@@ -837,203 +893,3 @@ class _PolicySection extends StatelessWidget {
   }
 }
 
-class _OwnerRegistrationBanner extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final requestAsync = ref.watch(userOwnerRequestProvider);
-
-    return requestAsync.when(
-      loading: () => _buildCTA(context),
-      error: (_, __) => _buildCTA(context),
-      data: (request) {
-        if (request == null) return _buildCTA(context);
-        return _buildStatus(context, request);
-      },
-    );
-  }
-
-  Widget _buildCTA(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const OwnerRegistrationScreen(),
-        ),
-      ),
-      child: Container(
-        margin: EdgeInsets.fromLTRB(20.w, 0, 20.w, 16.h),
-        padding: EdgeInsets.all(16.w),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.primary, AppColors.primaryGradient],
-          ),
-          borderRadius: BorderRadius.circular(14.r),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 40.w,
-              height: 40.w,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(10.r),
-              ),
-              child: Icon(Icons.store_rounded,
-                  size: 22.sp, color: Colors.white),
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Own a turf?',
-                    style: TextStyle(
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: AppTextStyles.bodyFont,
-                      color: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 2.h),
-                  Text(
-                    'Register as a turf owner and start earning',
-                    style: TextStyle(
-                      fontSize: 12.sp,
-                      fontFamily: AppTextStyles.bodyFont,
-                      color: Colors.white.withValues(alpha: 0.85),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios_rounded,
-                size: 16.sp, color: Colors.white),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatus(BuildContext context, OwnerRequest request) {
-    final color = _textColor(request.status);
-    return Container(
-      margin: EdgeInsets.fromLTRB(20.w, 0, 20.w, 16.h),
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: _bgColor(request.status),
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(color: _borderColor(request.status)),
-      ),
-      child: Row(
-        children: [
-          Icon(_icon(request.status), size: 22.sp, color: color),
-          SizedBox(width: 12.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _title(request.status),
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: AppTextStyles.bodyFont,
-                    color: color,
-                  ),
-                ),
-                SizedBox(height: 2.h),
-                Text(
-                  _subtitle(request),
-                  style: TextStyle(
-                    fontSize: 12.sp,
-                    fontFamily: AppTextStyles.bodyFont,
-                    color: color.withValues(alpha: 0.8),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _bgColor(String status) {
-    switch (status) {
-      case RequestStatus.pending:
-        return const Color(0xFFFFF8E1);
-      case RequestStatus.approved:
-        return AppColors.primaryLight;
-      case RequestStatus.rejected:
-        return const Color(0xFFFEE2E2);
-      default:
-        return AppColors.surface;
-    }
-  }
-
-  Color _borderColor(String status) {
-    switch (status) {
-      case RequestStatus.pending:
-        return const Color(0xFFFFE082);
-      case RequestStatus.approved:
-        return AppColors.primary.withValues(alpha: 0.3);
-      case RequestStatus.rejected:
-        return AppColors.error.withValues(alpha: 0.3);
-      default:
-        return AppColors.border;
-    }
-  }
-
-  Color _textColor(String status) {
-    switch (status) {
-      case RequestStatus.pending:
-        return const Color(0xFFF57F17);
-      case RequestStatus.approved:
-        return AppColors.primary;
-      case RequestStatus.rejected:
-        return AppColors.error;
-      default:
-        return AppColors.textPrimary;
-    }
-  }
-
-  IconData _icon(String status) {
-    switch (status) {
-      case RequestStatus.pending:
-        return Icons.hourglass_top_rounded;
-      case RequestStatus.approved:
-        return Icons.check_circle_rounded;
-      case RequestStatus.rejected:
-        return Icons.cancel_rounded;
-      default:
-        return Icons.info_outline;
-    }
-  }
-
-  String _title(String status) {
-    switch (status) {
-      case RequestStatus.pending:
-        return 'Request Under Review';
-      case RequestStatus.approved:
-        return 'Request Approved!';
-      case RequestStatus.rejected:
-        return 'Request Rejected';
-      default:
-        return status;
-    }
-  }
-
-  String _subtitle(OwnerRequest req) {
-    switch (req.status) {
-      case RequestStatus.pending:
-        return 'We\'re reviewing "${req.turfName}". Hang tight!';
-      case RequestStatus.approved:
-        return 'Restart the app to access your owner dashboard.';
-      case RequestStatus.rejected:
-        return req.rejectionReason ?? 'Please try again with updated info.';
-      default:
-        return '';
-    }
-  }
-}
