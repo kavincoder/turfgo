@@ -433,10 +433,41 @@ class _BookingConfirmationScreenState
                         Container(height: 1, color: AppColors.border),
                         SizedBox(height: 14.h),
                         _PriceRow(
-                          label: 'Total',
-                          value: '₹$_totalAmount',
+                          label: 'Pay at venue',
+                          value: AppFormat.price(_totalAmount * 0.80),
+                          valueColor: AppColors.textSecondary,
+                        ),
+                        SizedBox(height: 10.h),
+                        _PriceRow(
+                          label: 'Advance now (20%)',
+                          value: AppFormat.price(_totalAmount * 0.20),
                           isBold: true,
                           valueColor: AppColors.primary,
+                        ),
+                        SizedBox(height: 10.h),
+                        Container(
+                          padding: EdgeInsets.all(10.w),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryLight,
+                            borderRadius: BorderRadius.circular(8.r),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline_rounded,
+                                  size: 14.sp, color: AppColors.primary),
+                              SizedBox(width: 6.w),
+                              Expanded(
+                                child: Text(
+                                  'Pay the remaining ${AppFormat.price(_totalAmount * 0.80)} directly at the venue.',
+                                  style: TextStyle(
+                                    fontSize: 11.sp,
+                                    fontFamily: AppTextStyles.bodyFont,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),

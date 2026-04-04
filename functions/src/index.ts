@@ -238,12 +238,30 @@ export const createRazorpayOrder = onCall(
     if (!turfDoc.exists) {
       throw new HttpsError("not-found", "Turf not found.");
     }
-    const pricePerHour = turfDoc.data()!.pricePerHour as number;
+    const turfData = turfDoc.data()!;
+    const pricePerHour = turfData.pricePerHour as number;
     if (!pricePerHour || pricePerHour <= 0) {
       throw new HttpsError("internal", "Invalid turf pricing.");
     }
-    const totalAmount = Math.round(pricePerHour * slotIds.length);
-    const amountInPaise = totalAmount * 100;
+
+    // Commission rate: read from turf doc, default 13%.
+    // Change anytime in Firestore — no code deployment needed.
+    const commissionRate = (turfData.commissionRate as number | undefined) ?? 0.13;
+
+    const totalSlotPrice = Math.round(pricePerHour * slotIds.length);
+
+    // Player pays 20% advance only. Balance paid cash at venue.
+    const advanceAmount = Math.round(totalSlotPrice * 0.20);
+
+    // Commission is taken from the advance.
+    const commission = Math.round(totalSlotPrice * commissionRate);
+
+    // What the owner receives digitally (advance minus our commission).
+    // Owner collects the remaining balance (80%) in cash at venue.
+    const ownerPayout = advanceAmount - commission;
+    const balanceDueAtVenue = totalSlotPrice - advanceAmount;
+
+    const amountInPaise = advanceAmount * 100;
 
     const keyId = process.env.RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -296,6 +314,13 @@ export const createRazorpayOrder = onCall(
       slotStartTime,
       slotEndTime,
       amountInPaise: order.amount,
+      // Payment breakdown — stored so createBooking can verify & record
+      totalSlotPrice,
+      advanceAmount,
+      commission,
+      commissionRate,
+      ownerPayout,
+      balanceDueAtVenue,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       // 30-minute expiry — matches Razorpay order expiry
       expiresAt: new admin.firestore.Timestamp(
@@ -401,27 +426,33 @@ export const createBooking = onCall(
       throw new HttpsError("invalid-argument", "Order turf mismatch.");
     }
 
-    // ── Recalculate totalAmount server-side ────────────────────────────────
+    // ── Recalculate amounts server-side ───────────────────────────────────
     const turfDoc = await db.collection("turfs").doc(turfId).get();
     if (!turfDoc.exists) {
       throw new HttpsError("not-found", "Turf not found.");
     }
-    const pricePerHour = turfDoc.data()!.pricePerHour as number;
+    const turfData = turfDoc.data()!;
+    const pricePerHour = turfData.pricePerHour as number;
     if (!pricePerHour || pricePerHour <= 0) {
       throw new HttpsError("internal", "Invalid turf pricing.");
     }
-    const totalAmount = Math.round(pricePerHour * slotIds.length);
-    const expectedAmountInPaise = totalAmount * 100;
 
-    // Belt-and-suspenders: verify amount matches what was ordered
+    const commissionRate = (turfData.commissionRate as number | undefined) ?? 0.13;
+    const totalSlotPrice = Math.round(pricePerHour * slotIds.length);
+    const advancePaid = Math.round(totalSlotPrice * 0.20);
+    const commission = Math.round(totalSlotPrice * commissionRate);
+    const ownerPayout = advancePaid - commission;
+    const balanceDueAtVenue = totalSlotPrice - advancePaid;
+
+    const expectedAmountInPaise = advancePaid * 100;
+
+    // Belt-and-suspenders: verify advance matches what was ordered
     if (pendingOrder.amountInPaise !== expectedAmountInPaise) {
       console.error(
         `Amount mismatch: ordered=${pendingOrder.amountInPaise}, expected=${expectedAmountInPaise}, uid=${uid}`
       );
       throw new HttpsError("invalid-argument", "Payment amount mismatch.");
     }
-
-    const advancePaid = totalAmount; // 100% advance
 
     // ── Verify Razorpay HMAC signature ─────────────────────────────────────
     // Without this, anyone could call this function with a fake paymentId
@@ -503,8 +534,12 @@ export const createBooking = onCall(
         slotStartTime,
         slotEndTime,
         slotIds,
-        totalAmount,
-        advancePaid,
+        totalSlotPrice,       // full slot price e.g. ₹1,000
+        advancePaid,          // 20% paid now e.g. ₹200
+        commission,           // TurfGo cut e.g. ₹130
+        commissionRate,       // e.g. 0.13
+        ownerPayout,          // sent to owner UPI e.g. ₹70
+        balanceDueAtVenue,    // player pays at venue e.g. ₹800
         paymentId: razorpayPaymentId,
         razorpayOrderId,
         status: "confirmed",
@@ -910,15 +945,23 @@ export const razorpayWebhook = onRequest(
       return;
     }
 
-    const pricePerHour = turfDoc.data()!.pricePerHour as number;
+    const webhookTurfData = turfDoc.data()!;
+    const pricePerHour = webhookTurfData.pricePerHour as number;
     if (!pricePerHour || pricePerHour <= 0) {
       console.error(`Webhook: invalid pricePerHour for turfId=${turfId}`);
       res.status(200).send("Invalid turf pricing");
       return;
     }
 
-    const totalAmount = Math.round(pricePerHour * slotIds.length);
-    const expectedAmountInPaise = totalAmount * 100;
+    const webhookCommissionRate = (webhookTurfData.commissionRate as number | undefined) ?? 0.13;
+    const webhookTotalSlotPrice = Math.round(pricePerHour * slotIds.length);
+    const webhookAdvancePaid = Math.round(webhookTotalSlotPrice * 0.20);
+    const webhookCommission = Math.round(webhookTotalSlotPrice * webhookCommissionRate);
+    const webhookOwnerPayout = webhookAdvancePaid - webhookCommission;
+    const webhookBalanceDueAtVenue = webhookTotalSlotPrice - webhookAdvancePaid;
+
+    const totalAmount = webhookAdvancePaid; // what was actually charged
+    const expectedAmountInPaise = webhookAdvancePaid * 100;
 
     // Belt-and-suspenders: captured amount must match what we calculated
     if (capturedAmountInPaise !== expectedAmountInPaise) {
@@ -971,8 +1014,12 @@ export const razorpayWebhook = onRequest(
           slotStartTime,
           slotEndTime,
           slotIds,
-          totalAmount,
-          advancePaid: totalAmount,
+          totalSlotPrice: webhookTotalSlotPrice,
+          advancePaid: webhookAdvancePaid,
+          commission: webhookCommission,
+          commissionRate: webhookCommissionRate,
+          ownerPayout: webhookOwnerPayout,
+          balanceDueAtVenue: webhookBalanceDueAtVenue,
           paymentId: razorpayPaymentId,
           razorpayOrderId,
           status: "confirmed",
