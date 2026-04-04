@@ -13,12 +13,7 @@ import '../../models/turf.dart';
 import '../../providers/user_provider.dart';
 import '../booking_success/booking_success_screen.dart';
 
-// RAZORPAY_KEY_ID is a public key — safe to ship in the client.
-// Pass it at build time: flutter run --dart-define=RAZORPAY_KEY_ID=rzp_test_xxx
-const _kRazorpayKeyId = String.fromEnvironment(
-  'RAZORPAY_KEY_ID',
-  defaultValue: 'rzp_test_placeholder',
-);
+// Razorpay KEY_ID is returned by createRazorpayOrder CF — never stored in the binary.
 
 enum _PaymentState { idle, loading, failed }
 
@@ -63,7 +58,6 @@ class _BookingConfirmationScreenState
   String get _slotStartTime => widget.selectedSlots.first.startTime;
   String get _slotEndTime => widget.selectedSlots.last.endTime;
   int get _totalAmount => (widget.turf.pricePerHour * widget.duration).toInt();
-  int get _totalInPaise => _totalAmount * 100;
 
   @override
   void initState() {
@@ -95,22 +89,33 @@ class _BookingConfirmationScreenState
         slotIds: slotIds,
       );
 
-      // Step 2: Create Razorpay order server-side
+      // Step 2: Create Razorpay order server-side.
+      // Amount is calculated from Firestore pricePerHour — never sent from client.
       final receipt =
           'tgo_${DateTime.now().millisecondsSinceEpoch}'.substring(0, 40);
       final orderData = await _paymentRepo.createRazorpayOrder(
-        amountInPaise: _totalInPaise,
+        turfId: widget.turf.id,
+        turfName: widget.turf.name,
+        cityId: widget.turf.cityId,
+        sport: widget.sport,
+        slotIds: slotIds,
+        slotDate: _slotDate,
+        slotStartTime: _slotStartTime,
+        slotEndTime: _slotEndTime,
         receipt: receipt,
       );
       _pendingOrderId = orderData['orderId'] as String;
+      final razorpayKeyId = orderData['keyId'] as String;
+      // Use the server-verified amount — never the client-calculated one.
+      final serverAmountInPaise = (orderData['amount'] as num).toInt();
 
       // Step 3: Prefill user details
       final user = ref.read(currentUserProvider).valueOrNull;
 
       // Step 4: Open Razorpay payment sheet
       _razorpay.open({
-        'key': _kRazorpayKeyId,
-        'amount': _totalInPaise,
+        'key': razorpayKeyId,
+        'amount': serverAmountInPaise,
         'order_id': _pendingOrderId,
         'name': 'TurfGo',
         'description': '${widget.turf.name} · ${widget.slotLabel}',
@@ -148,8 +153,6 @@ class _BookingConfirmationScreenState
         slotStartTime: _slotStartTime,
         slotEndTime: _slotEndTime,
         sport: widget.sport,
-        totalAmount: _totalAmount,
-        advancePaid: _totalAmount,
         razorpayPaymentId: response.paymentId ?? '',
         razorpayOrderId: response.orderId ?? _pendingOrderId ?? '',
         razorpaySignature: response.signature ?? '',
@@ -171,19 +174,20 @@ class _BookingConfirmationScreenState
         ),
         (route) => route.isFirst,
       );
-    } on FirebaseFunctionsException catch (e) {
+    } on FirebaseFunctionsException catch (_) {
       if (!mounted) return;
       setState(() {
         _paymentState = _PaymentState.failed;
         _errorMessage =
-            'Payment received but booking failed. Contact support with payment ID: ${response.paymentId}. Error: ${e.message}';
+            'Payment received but booking failed. Your booking will be confirmed shortly — check My Bookings in a few minutes.';
       });
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('[BookingConfirmation] createBooking unexpected error: $e\n$st');
       if (!mounted) return;
       setState(() {
         _paymentState = _PaymentState.failed;
         _errorMessage =
-            'Payment received but booking failed. Contact support with payment ID: ${response.paymentId}';
+            'Payment received but booking failed. Your booking will be confirmed shortly — check My Bookings in a few minutes.';
       });
     }
   }
@@ -287,7 +291,7 @@ class _BookingConfirmationScreenState
                             placeholder: (_, __) => Container(
                               width: 100.w,
                               height: 90.h,
-                              color: const Color(0xFF1B4332),
+                              color: AppColors.primaryDark,
                               child: Icon(Icons.sports_soccer,
                                   size: 28.sp,
                                   color: Colors.white.withValues(alpha: 0.3)),
@@ -295,7 +299,7 @@ class _BookingConfirmationScreenState
                             errorWidget: (_, __, ___) => Container(
                               width: 100.w,
                               height: 90.h,
-                              color: const Color(0xFF1B4332),
+                              color: AppColors.primaryDark,
                               child: Icon(Icons.sports,
                                   size: 28.sp,
                                   color: Colors.white.withValues(alpha: 0.3)),
@@ -422,8 +426,8 @@ class _BookingConfirmationScreenState
                         SizedBox(height: 16.h),
                         _PriceRow(
                           label:
-                              '₹${widget.turf.pricePerHour.toInt()} × ${widget.duration} ${widget.duration == 1 ? 'hr' : 'hrs'}',
-                          value: '₹$_totalAmount',
+                              '${AppFormat.price(widget.turf.pricePerHour)} × ${widget.duration} ${widget.duration == 1 ? 'hr' : 'hrs'}',
+                          value: AppFormat.price(_totalAmount),
                         ),
                         SizedBox(height: 14.h),
                         Container(height: 1, color: AppColors.border),

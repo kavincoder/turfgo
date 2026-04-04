@@ -22,15 +22,31 @@ class PaymentRepository {
     return (data['lockedUntilMs'] as num).toInt();
   }
 
-  /// Creates a Razorpay order server-side and returns the orderId.
-  /// Amount must be in paise (₹100 = 10000 paise).
+  /// Creates a Razorpay order server-side. Amount is calculated from
+  /// Firestore pricePerHour — never sent from client.
+  ///
+  /// Returns a map with: orderId, amount (in paise), currency, keyId.
   Future<Map<String, dynamic>> createRazorpayOrder({
-    required int amountInPaise,
+    required String turfId,
+    required String turfName,
+    required String cityId,
+    required String sport,
+    required List<String> slotIds,
+    required String slotDate,
+    required String slotStartTime,
+    required String slotEndTime,
     required String receipt,
   }) async {
     final callable = _functions.httpsCallable('createRazorpayOrder');
     final result = await callable.call({
-      'amountInPaise': amountInPaise,
+      'turfId': turfId,
+      'turfName': turfName,
+      'cityId': cityId,
+      'sport': sport,
+      'slotIds': slotIds,
+      'slotDate': slotDate,
+      'slotStartTime': slotStartTime,
+      'slotEndTime': slotEndTime,
       'receipt': receipt,
     });
     return Map<String, dynamic>.from(result.data as Map);
@@ -48,8 +64,6 @@ class PaymentRepository {
     required String slotStartTime,
     required String slotEndTime,
     required String sport,
-    required int totalAmount,
-    required int advancePaid,
     required String razorpayPaymentId,
     required String razorpayOrderId,
     required String razorpaySignature,
@@ -64,8 +78,6 @@ class PaymentRepository {
       'slotStartTime': slotStartTime,
       'slotEndTime': slotEndTime,
       'sport': sport,
-      'totalAmount': totalAmount,
-      'advancePaid': advancePaid,
       'razorpayPaymentId': razorpayPaymentId,
       'razorpayOrderId': razorpayOrderId,
       'razorpaySignature': razorpaySignature,
