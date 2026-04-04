@@ -85,4 +85,18 @@ class PaymentRepository {
     final data = Map<String, dynamic>.from(result.data as Map);
     return data['bookingId'] as String;
   }
+
+  /// Cancels a confirmed booking.
+  ///
+  /// Returns a map with keys:
+  ///   • success (bool)
+  ///   • refundAmount (num) — 0 if non-refundable window
+  ///   • message (String)   — human-readable outcome
+  Future<Map<String, dynamic>> cancelBooking({
+    required String bookingId,
+  }) async {
+    final callable = _functions.httpsCallable('cancelBooking');
+    final result = await callable.call({'bookingId': bookingId});
+    return Map<String, dynamic>.from(result.data as Map);
+  }
 }

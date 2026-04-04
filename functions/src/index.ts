@@ -1062,3 +1062,172 @@ export const razorpayWebhook = onRequest(
     }
   }
 );
+
+// ── cancelBooking ─────────────────────────────────────────────────────────────
+// Player-initiated cancellation.
+//
+// Refund policy:
+//   • Cancelled > 24 h before slot start → full advance refund via Razorpay
+//   • Cancelled ≤ 24 h before slot start → no refund (advance forfeited)
+//
+// Atomically:
+//   1. Marks booking as 'cancelled'
+//   2. Decrements bookedCount on every slot in booking.slotIds
+//   3. Removes bookingId from slot.bookingIds array
+//   4. Sets slot.isBooked = false (slot is now available again)
+//
+// After transaction: initiates Razorpay refund if eligible.
+// Refund failure does NOT re-open the booking — it flags refundStatus='failed'
+// for manual review in the admin dashboard.
+
+export const cancelBooking = onCall(
+  { secrets: ["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET"] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be signed in.");
+    }
+    const uid = request.auth.uid;
+    const { bookingId } = request.data as { bookingId: string };
+
+    if (!bookingId || typeof bookingId !== "string") {
+      throw new HttpsError("invalid-argument", "bookingId is required.");
+    }
+
+    const bookingRef = db.collection("bookings").doc(bookingId);
+    let refundAmount = 0;
+    let paymentId = "";
+
+    await db.runTransaction(async (tx) => {
+      const bookingDoc = await tx.get(bookingRef);
+      if (!bookingDoc.exists) {
+        throw new HttpsError("not-found", "Booking not found.");
+      }
+
+      const booking = bookingDoc.data()!;
+
+      if (booking.userId !== uid) {
+        throw new HttpsError("permission-denied", "Not your booking.");
+      }
+
+      if (booking.status !== "confirmed") {
+        throw new HttpsError(
+          "failed-precondition",
+          `Booking is already ${booking.status}.`
+        );
+      }
+
+      // Parse slot start in IST (UTC+5:30)
+      const slotDateTime = new Date(
+        `${booking.slotDate}T${booking.slotStartTime}:00+05:30`
+      );
+      const now = new Date();
+      const hoursUntilSlot =
+        (slotDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+      if (hoursUntilSlot < 0) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Cannot cancel a booking that has already started."
+        );
+      }
+
+      // Refund policy: full advance refund only if > 24 h away
+      const isRefundEligible = hoursUntilSlot > 24;
+      refundAmount = isRefundEligible ? (booking.advancePaid as number) : 0;
+      paymentId = (booking.paymentId as string) ?? "";
+
+      // Free every slot covered by this booking
+      const slotIds = (booking.slotIds as string[]) ?? [];
+      const turfId = booking.turfId as string;
+
+      for (const slotId of slotIds) {
+        const slotRef = db
+          .collection("turfs")
+          .doc(turfId)
+          .collection("slots")
+          .doc(slotId);
+        const slotDoc = await tx.get(slotRef);
+        if (slotDoc.exists) {
+          tx.update(slotRef, {
+            bookedCount: admin.firestore.FieldValue.increment(-1),
+            bookingIds: admin.firestore.FieldValue.arrayRemove(bookingId),
+            isBooked: false, // at least one court is now free
+            lockedBy: null,
+            lockedUntil: null,
+          });
+        }
+      }
+
+      tx.update(bookingRef, {
+        status: "cancelled",
+        cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
+        refundAmount,
+        payoutStatus: "cancelled",
+      });
+    });
+
+    // Initiate Razorpay refund outside the transaction (network call)
+    if (refundAmount > 0 && paymentId) {
+      try {
+        const keyId = process.env.RAZORPAY_KEY_ID!;
+        const keySecret = process.env.RAZORPAY_KEY_SECRET!;
+        const authHeader = Buffer.from(`${keyId}:${keySecret}`).toString(
+          "base64"
+        );
+
+        const refundRes = await fetch(
+          `https://api.razorpay.com/v1/payments/${paymentId}/refund`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Basic ${authHeader}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              amount: Math.round(refundAmount * 100), // paise
+              notes: {
+                bookingId,
+                reason: "Player cancellation — within refund window",
+              },
+            }),
+          }
+        );
+
+        if (!refundRes.ok) {
+          const errText = await refundRes.text();
+          console.error(
+            `Refund API failed for bookingId=${bookingId}`,
+            errText
+          );
+          // Don't re-throw — booking is cancelled. Flag for manual admin review.
+          await bookingRef.update({
+            refundStatus: "failed",
+            refundError: errText,
+          });
+        } else {
+          const refundData = (await refundRes.json()) as { id: string };
+          await bookingRef.update({
+            refundStatus: "initiated",
+            razorpayRefundId: refundData.id,
+          });
+          console.log(
+            `Refund initiated: bookingId=${bookingId} refundId=${refundData.id} amount=₹${refundAmount}`
+          );
+        }
+      } catch (err) {
+        // Network/parse error — booking already cancelled, refund needs manual retry
+        console.error("Refund initiation error", err);
+        await bookingRef.update({ refundStatus: "failed" });
+      }
+    }
+
+    return {
+      success: true,
+      refundAmount,
+      message:
+        refundAmount > 0
+          ? `Booking cancelled. ₹${refundAmount} will be refunded within 5–7 business days.`
+          : "Booking cancelled. Cancellations within 24 hours of the slot are non-refundable.",
+    };
+  }
+);
