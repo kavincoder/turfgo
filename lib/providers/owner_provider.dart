@@ -1,9 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/repositories/owner_repository.dart';
 import '../models/booking.dart';
 import '../models/turf.dart';
+import 'auth_provider.dart';
 
 final ownerRepositoryProvider = Provider<OwnerRepository>(
   (ref) => OwnerRepository(),
@@ -11,8 +11,8 @@ final ownerRepositoryProvider = Provider<OwnerRepository>(
 
 /// All turfs owned by the current user.
 final ownerTurfsProvider = FutureProvider<List<Turf>>((ref) {
-  final uid = FirebaseAuth.instance.currentUser?.uid;
-  if (uid == null) return [];
+  final uid = ref.watch(authStateProvider).valueOrNull?.uid;
+  if (uid == null) return Future.value([]);
   return ref.watch(ownerRepositoryProvider).getOwnerTurfs(uid);
 });
 
