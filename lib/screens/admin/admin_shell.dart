@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../core/constants.dart';
 import '../profile/profile_screen.dart';
 import 'admin_dashboard_screen.dart';
+import 'admin_requests_screen.dart';
 import 'admin_turfs_screen.dart';
 import 'admin_users_screen.dart';
 
@@ -24,6 +25,7 @@ class _AdminShellState extends State<AdminShell> {
         index: _currentIndex,
         children: [
           const AdminDashboardScreen(),
+          const AdminRequestsScreen(),
           const AdminTurfsScreen(),
           const AdminUsersScreen(),
           ProfileScreen(
@@ -42,18 +44,23 @@ class _AdminShellState extends State<AdminShell> {
           elevation: 0,
           selectedLabelStyle: TextStyle(
             fontFamily: AppTextStyles.bodyFont,
-            fontSize: 12.sp,
+            fontSize: 10.sp,
             fontWeight: FontWeight.w600,
           ),
           unselectedLabelStyle: TextStyle(
             fontFamily: AppTextStyles.bodyFont,
-            fontSize: 12.sp,
+            fontSize: 10.sp,
           ),
           items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.dashboard_outlined),
               activeIcon: Icon(Icons.dashboard_rounded),
               label: 'Dashboard',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.assignment_outlined),
+              activeIcon: Icon(Icons.assignment_rounded),
+              label: 'Requests',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.stadium_outlined),

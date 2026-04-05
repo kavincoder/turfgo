@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/constants.dart';
 
 class Booking {
   final String id;
@@ -55,9 +56,14 @@ class Booking {
     required this.createdAt,
   });
 
-  bool get isUpcoming =>
-      status == 'confirmed' &&
-      DateTime.parse('$slotDate $slotStartTime').isAfter(DateTime.now());
+  bool get isUpcoming {
+    if (status != BookingStatus.confirmed) return false;
+    try {
+      return DateTime.parse('$slotDate $slotStartTime').isAfter(DateTime.now());
+    } catch (_) {
+      return false;
+    }
+  }
 
   factory Booking.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;

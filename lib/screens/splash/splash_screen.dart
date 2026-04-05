@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../core/constants.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -16,39 +17,53 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 800), _routeByRole);
+    _init();
   }
 
-  Future<void> _routeByRole() async {
+  Future<void> _init() async {
+    // Minimum splash duration for branding
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (!mounted) return;
+    await _route();
+  }
+
+  Future<void> _route() async {
     if (!mounted) return;
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null) {
       context.go('/login');
       return;
     }
 
-    // Fetch role from Firestore to decide where to land
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
-      if (!mounted) return;
-
-      final role = doc.data()?['role'] ?? 'player';
-      switch (role) {
-        case 'owner':
-          context.go('/owner');
-        case 'admin':
-          context.go('/admin');
-        default:
-          context.go('/home');
+    // Fresh Firestore read — never uses a stale Riverpod stream.
+    // Retries up to 3 times with a short back-off so a slow network
+    // doesn't accidentally drop the admin to the player home.
+    String role = UserRole.player;
+    for (int attempt = 0; attempt < 3; attempt++) {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(firebaseUser.uid)
+            .get();
+        role = (doc.data()?['role'] as String?)?.trim() ?? UserRole.player;
+        break; // success — stop retrying
+      } catch (_) {
+        if (attempt < 2) {
+          await Future.delayed(const Duration(seconds: 1));
+        }
+        // On final failure keep default 'player' role
       }
-    } catch (_) {
-      // Fallback to player home if Firestore read fails
-      if (mounted) context.go('/home');
+    }
+
+    if (!mounted) return;
+    switch (role) {
+      case UserRole.admin:
+        context.go('/admin');
+      case UserRole.owner:
+        context.go('/owner');
+      default:
+        context.go('/home');
     }
   }
 

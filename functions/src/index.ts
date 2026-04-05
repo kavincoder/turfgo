@@ -641,7 +641,6 @@ export const seedSlots = onCall(async (request) => {
         .filter((c) => c.sport === sport && hour >= c.fromHour && hour < c.toHour)
         .reduce((sum, c) => sum + c.courts, 0);
       const clampedCoaching = Math.min(coachingReserved, courtCount);
-
       const startTime = `${String(hour).padStart(2, "0")}:00`;
       const endTime = `${String(hour + 1).padStart(2, "0")}:00`;
       const slotId = `${date}_${sport.toLowerCase()}_${startTime}`;

@@ -1,26 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../core/constants.dart';
+import '../../core/date_utils.dart';
 import '../../providers/admin_provider.dart';
+import 'admin_bookings_detail_screen.dart';
+import 'admin_revenue_screen.dart';
+import 'admin_turfs_detail_screen.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
-
-  String _todayStr() {
-    final now = DateTime.now();
-    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bookingsAsync = ref.watch(allBookingsStreamProvider);
     final turfsAsync = ref.watch(allTurfsStreamProvider);
     final usersAsync = ref.watch(allUsersStreamProvider);
-    final today = _todayStr();
+    final today = TurfDateUtils.todayString();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -80,8 +78,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                         ),
                         SizedBox(height: 4.h),
                         Text(
-                          DateFormat('EEEE, MMM d yyyy')
-                              .format(DateTime.now()),
+                          TurfDateUtils.formatDateLong(TurfDateUtils.todayString()),
                           style: TextStyle(
                             fontSize: 13.sp,
                             fontFamily: AppTextStyles.bodyFont,
@@ -113,20 +110,38 @@ class AdminDashboardScreen extends ConsumerWidget {
                     child: Row(
                       children: [
                         Expanded(
-                          child: _StatCard(
-                            icon: Icons.calendar_today_rounded,
-                            label: 'Bookings',
-                            value: '${todayBookings.length}',
-                            iconColor: AppColors.primary,
+                          child: GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const AdminBookingsDetailScreen(),
+                              ),
+                            ),
+                            child: _StatCard(
+                              icon: Icons.calendar_today_rounded,
+                              label: 'Bookings',
+                              value: '${todayBookings.length}',
+                              iconColor: AppColors.primary,
+                            ),
                           ),
                         ),
                         SizedBox(width: 12.w),
                         Expanded(
-                          child: _StatCard(
-                            icon: Icons.currency_rupee_rounded,
-                            label: 'Revenue',
-                            value: '₹${todayRevenue.toInt()}',
-                            iconColor: const Color(0xFF059669),
+                          child: GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const AdminRevenueScreen(),
+                              ),
+                            ),
+                            child: _StatCard(
+                              icon: Icons.currency_rupee_rounded,
+                              label: 'Revenue',
+                              value: '₹${todayRevenue.toInt()}',
+                              iconColor: AppColors.emerald,
+                            ),
                           ),
                         ),
                       ],
@@ -154,20 +169,38 @@ class AdminDashboardScreen extends ConsumerWidget {
                     child: Row(
                       children: [
                         Expanded(
-                          child: _StatCard(
-                            icon: Icons.account_balance_wallet_rounded,
-                            label: 'Total Revenue',
-                            value: '₹${totalRevenue.toInt()}',
-                            iconColor: const Color(0xFF7C3AED),
+                          child: GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const AdminRevenueScreen(),
+                              ),
+                            ),
+                            child: _StatCard(
+                              icon: Icons.account_balance_wallet_rounded,
+                              label: 'Total Revenue',
+                              value: '₹${totalRevenue.toInt()}',
+                              iconColor: AppColors.purple,
+                            ),
                           ),
                         ),
                         SizedBox(width: 12.w),
                         Expanded(
-                          child: _StatCard(
-                            icon: Icons.receipt_long_rounded,
-                            label: 'Total Bookings',
-                            value: '${confirmedBookings.length}',
-                            iconColor: const Color(0xFF2563EB),
+                          child: GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const AdminBookingsDetailScreen(),
+                              ),
+                            ),
+                            child: _StatCard(
+                              icon: Icons.receipt_long_rounded,
+                              label: 'Total Bookings',
+                              value: '${confirmedBookings.length}',
+                              iconColor: AppColors.blue,
+                            ),
                           ),
                         ),
                       ],
@@ -179,11 +212,20 @@ class AdminDashboardScreen extends ConsumerWidget {
                     child: Row(
                       children: [
                         Expanded(
-                          child: _StatCard(
-                            icon: Icons.stadium_rounded,
-                            label: 'Active Turfs',
-                            value: '$activeTurfs / ${turfs.length}',
-                            iconColor: const Color(0xFFD97706),
+                          child: GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const AdminTurfsDetailScreen(),
+                              ),
+                            ),
+                            child: _StatCard(
+                              icon: Icons.stadium_rounded,
+                              label: 'Active Turfs',
+                              value: '$activeTurfs / ${turfs.length}',
+                              iconColor: AppColors.amber,
+                            ),
                           ),
                         ),
                         SizedBox(width: 12.w),
@@ -192,7 +234,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                             icon: Icons.people_rounded,
                             label: 'Total Users',
                             value: '${users.length}',
-                            iconColor: const Color(0xFFDB2777),
+                            iconColor: AppColors.pink,
                           ),
                         ),
                       ],

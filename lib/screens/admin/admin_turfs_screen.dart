@@ -172,7 +172,7 @@ class _TurfCard extends ConsumerWidget {
           Row(
             children: [
               Icon(Icons.star_rounded,
-                  size: 14.sp, color: const Color(0xFFF59E0B)),
+                  size: 14.sp, color: AppColors.warning),
               SizedBox(width: 4.w),
               Text(
                 turf.rating.toStringAsFixed(1),

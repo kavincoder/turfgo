@@ -28,7 +28,7 @@ class AppUser {
       name: data['name'] ?? '',
       phone: data['phone'] ?? '',
       cityId: data['cityId'] ?? '',
-      role: data['role'] ?? 'player',
+      role: (data['role'] as String?)?.trim() ?? 'player',
       referralCode: data['referralCode'],
       referredBy: data['referredBy'],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),

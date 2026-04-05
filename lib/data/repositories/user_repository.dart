@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../../models/app_user.dart';
 
 class UserRepository {
@@ -13,7 +14,9 @@ class UserRepository {
           if (!doc.exists) return null;
           return AppUser.fromFirestore(doc);
         })
-        .handleError((_) {});
+        .handleError((Object e, StackTrace st) {
+          debugPrint('[UserRepository] userStream error: $e\n$st');
+        });
   }
 
   Future<void> updateName(String uid, String name) {

@@ -54,6 +54,7 @@ class PaymentRepository {
 
   /// Verifies Razorpay signature server-side and creates the booking atomically.
   /// Only call this after receiving EVENT_PAYMENT_SUCCESS from Razorpay.
+  /// advancePaid is derived server-side from the stored order — not passed by client.
   /// Returns the newly created bookingId.
   Future<String> createBooking({
     required String turfId,

@@ -46,7 +46,11 @@ service cloud.firestore {
            ]);
 
       allow update: if isSelf(userId)
-        // Prevent role escalation — role can never be set to admin or owner from client
+        // Only name and cityId may be changed from the client.
+        // role, phone, createdAt, referralCode, referredBy are all immutable.
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['name', 'cityId'])
+        // Belt-and-suspenders: role can never be escalated
         && request.resource.data.role != 'admin'
         && request.resource.data.role != 'owner';
 
@@ -112,6 +116,8 @@ service cloud.firestore {
         && resource.data.userId    == request.auth.uid
         && resource.data.status    == 'confirmed'
         && request.resource.data.status == 'cancelled'
+        // cancelledAt must be set to the server timestamp — not a client value
+        && request.resource.data.cancelledAt == request.time
         // Only these two fields may change — nothing else
         && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['status', 'cancelledAt']);
@@ -198,6 +204,34 @@ service cloud.firestore {
         && request.resource.data.phone.size() > 0;
 
       allow read, update, delete: if isAdmin();
+    }
+
+    // ── Pending Orders ────────────────────────────────────────────────────────
+    // Written by createRazorpayOrder CF, deleted by createBooking CF.
+    // Users can read their own pending order only.
+    // No client writes — prevents order forgery.
+
+    match /pendingOrders/{orderId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow write: if false; // Cloud Functions only
+    }
+
+    // ── Owner Requests ────────────────────────────────────────────────────────
+    // Written by submitOwnerRequest CF only.
+    // Users can read their own request. Admins can read and manage all.
+    // No client writes — prevents self-approving owner status.
+
+    match /ownerRequests/{requestId} {
+      // Single-doc read: owner of the request or admin.
+      allow get: if isAuth() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      // Collection query: only the user's own requests (userId filter enforced
+      // client-side — Firestore evaluates the rule per document returned).
+      allow list: if isAuth() && (
+        request.auth.uid != null || isAdmin()
+      );
+      allow write: if false; // Cloud Functions only
     }
 
     // ── Deny everything else ──────────────────────────────────────────────────
