@@ -25,8 +25,8 @@ class _SlotSelectionScreenState
     extends ConsumerState<SlotSelectionScreen> {
   late DateTime _selectedDate;
   late String _selectedSport;
-  int? _selectedSlotIndex;
-  int _duration = 1;
+  int? _rangeStart;
+  int? _rangeEnd;
 
   final _dates = List.generate(7, (i) {
     final now = DateTime.now();
@@ -61,20 +61,17 @@ class _SlotSelectionScreenState
     return hour <= DateTime.now().hour;
   }
 
-  bool _isOutOfBounds(int index) =>
-      index + _duration > _slotHours.length;
+  int get _duration =>
+      _rangeStart == null ? 0 : _rangeEnd! - _rangeStart! + 1;
 
-  bool _isInSelection(int index) {
-    if (_selectedSlotIndex == null) return false;
-    return index >= _selectedSlotIndex! &&
-        index < _selectedSlotIndex! + _duration;
-  }
+  bool _isInSelection(int index) =>
+      _rangeStart != null &&
+      index >= _rangeStart! &&
+      index <= _rangeEnd!;
 
-  bool _isSelectionStart(int index) => index == _selectedSlotIndex;
+  bool _isSelectionStart(int index) => index == _rangeStart;
 
-  bool _isSelectionEnd(int index) =>
-      _selectedSlotIndex != null &&
-      index == _selectedSlotIndex! + _duration - 1;
+  bool _isSelectionEnd(int index) => index == _rangeEnd;
 
   String _formatHour(int hour) {
     final period = hour < 12 ? 'AM' : 'PM';
@@ -89,25 +86,32 @@ class _SlotSelectionScreenState
   double get _totalPrice => widget.turf.pricePerHour * _duration;
 
   String get _slotLabel {
-    if (_selectedSlotIndex == null) return '';
-    final startHour = _slotHours[_selectedSlotIndex!];
-    final endHour = startHour + _duration;
+    if (_rangeStart == null) return '';
+    final startHour = _slotHours[_rangeStart!];
+    final endHour = _slotHours[_rangeEnd!] + 1;
     return '${_formatHour(startHour)} – ${_formatHour(endHour)}';
   }
 
-  void _onDurationChanged(double val) {
-    final newDuration = val.toInt();
+  void _onSlotTap(int index) {
     setState(() {
-      _duration = newDuration;
-      if (_selectedSlotIndex != null &&
-          _selectedSlotIndex! + newDuration > _slotHours.length) {
-        _selectedSlotIndex = null;
+      if (_rangeStart == null) {
+        _rangeStart = _rangeEnd = index;
+      } else if (_rangeStart == _rangeEnd && index == _rangeStart) {
+        _rangeStart = _rangeEnd = null;
+      } else if (index == _rangeEnd && _rangeEnd! > _rangeStart!) {
+        _rangeEnd = _rangeEnd! - 1;
+      } else if (index == _rangeEnd! + 1) {
+        _rangeEnd = _rangeEnd! + 1;
+      } else if (index == _rangeStart! - 1) {
+        _rangeStart = _rangeStart! - 1;
+      } else {
+        _rangeStart = _rangeEnd = index;
       }
     });
   }
 
   void _proceed() {
-    if (_selectedSlotIndex == null) return;
+    if (_rangeStart == null) return;
 
     // Collect the actual Slot objects for the selected time range
     final slotsData = ref
@@ -118,7 +122,7 @@ class _SlotSelectionScreenState
 
     final selectedSlots = <Slot>[];
     for (int i = 0; i < _duration; i++) {
-      final hour = _slotHours[_selectedSlotIndex! + i];
+      final hour = _slotHours[_rangeStart! + i];
       final startTime = _toStartTimeStr(hour);
 
       Slot? match;
@@ -262,7 +266,7 @@ class _SlotSelectionScreenState
                               child: GestureDetector(
                                 onTap: () => setState(() {
                                   _selectedSport = sport;
-                                  _selectedSlotIndex = null;
+                                  _rangeStart = _rangeEnd = null;
                                 }),
                                 child: AnimatedContainer(
                                   duration:
@@ -336,7 +340,7 @@ class _SlotSelectionScreenState
                             return GestureDetector(
                               onTap: () => setState(() {
                                 _selectedDate = date;
-                                _selectedSlotIndex = null;
+                                _rangeStart = _rangeEnd = null;
                               }),
                               child: AnimatedContainer(
                                 duration:
@@ -410,92 +414,6 @@ class _SlotSelectionScreenState
 
                 SizedBox(height: 12.h),
 
-                // Duration slider
-                Container(
-                  color: Colors.white,
-                  padding: EdgeInsets.symmetric(
-                      horizontal: 20.w, vertical: 16.h),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Duration',
-                            style: TextStyle(
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w700,
-                              fontFamily: AppTextStyles.bodyFont,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 14.w, vertical: 6.h),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryLight,
-                              borderRadius: BorderRadius.circular(20.r),
-                            ),
-                            child: Text(
-                              '$_duration ${_duration == 1 ? 'hour' : 'hours'}  ·  ${AppFormat.price(widget.turf.pricePerHour * _duration)}',
-                              style: TextStyle(
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primary,
-                                fontFamily: AppTextStyles.bodyFont,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 8.h),
-                      SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          activeTrackColor: AppColors.primary,
-                          inactiveTrackColor: AppColors.greyLight,
-                          thumbColor: AppColors.primary,
-                          overlayColor:
-                              AppColors.primary.withValues(alpha: 0.1),
-                          trackHeight: 4,
-                          thumbShape: RoundSliderThumbShape(
-                              enabledThumbRadius: 10.r),
-                        ),
-                        child: Slider(
-                          value: _duration.toDouble(),
-                          min: 1,
-                          max: 4,
-                          divisions: 3,
-                          onChanged: _onDurationChanged,
-                        ),
-                      ),
-                      Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
-                        children: List.generate(4, (i) {
-                          final val = i + 1;
-                          return Text(
-                            '${val}h',
-                            style: TextStyle(
-                              fontSize: 11.sp,
-                              fontFamily: AppTextStyles.bodyFont,
-                              color: _duration == val
-                                  ? AppColors.primary
-                                  : AppColors.grey,
-                              fontWeight: _duration == val
-                                  ? FontWeight.w700
-                                  : FontWeight.normal,
-                            ),
-                          );
-                        }),
-                      ),
-                    ],
-                  ),
-                ),
-
-                SizedBox(height: 12.h),
-
                 // Legend
                 Container(
                   color: Colors.white,
@@ -529,7 +447,7 @@ class _SlotSelectionScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Select Start Time',
+                        'Select Slots',
                         style: TextStyle(
                           fontSize: 16.sp,
                           fontWeight: FontWeight.w700,
@@ -539,7 +457,7 @@ class _SlotSelectionScreenState
                       ),
                       SizedBox(height: 4.h),
                       Text(
-                        'Booking will cover $_duration consecutive ${_duration == 1 ? 'hour' : 'hours'}',
+                        'Tap to select · Tap the last slot again to shrink',
                         style: TextStyle(
                           fontSize: 12.sp,
                           fontFamily: AppTextStyles.bodyFont,
@@ -590,11 +508,9 @@ class _SlotSelectionScreenState
                             final hour = _slotHours[index];
                             final startTime = _toStartTimeStr(hour);
                             final isPast = _isPastSlot(hour);
-                            final isOob = _isOutOfBounds(index);
                             final isBooked = unavailableStartTimes
                                 .contains(startTime);
-                            final disabled =
-                                isPast || isOob || isBooked;
+                            final disabled = isPast || isBooked;
                             final inSelection = _isInSelection(index);
                             final isStart = _isSelectionStart(index);
                             final isEnd = _isSelectionEnd(index);
@@ -629,8 +545,7 @@ class _SlotSelectionScreenState
                             return GestureDetector(
                               onTap: disabled
                                   ? null
-                                  : () => setState(
-                                      () => _selectedSlotIndex = index),
+                                  : () => _onSlotTap(index),
                               child: AnimatedContainer(
                                 duration:
                                     const Duration(milliseconds: 150),
@@ -715,7 +630,7 @@ class _SlotSelectionScreenState
                 ],
               ),
               child: ElevatedButton(
-                onPressed: _selectedSlotIndex != null ? _proceed : null,
+                onPressed: _rangeStart != null ? _proceed : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   disabledBackgroundColor: AppColors.greyLight,
@@ -733,9 +648,9 @@ class _SlotSelectionScreenState
                   ),
                 ),
                 child: Text(
-                  _selectedSlotIndex != null
+                  _rangeStart != null
                       ? 'Proceed  ·  $_slotLabel  ·  ${AppFormat.price(_totalPrice)}'
-                      : 'Select a Start Time',
+                      : 'Select a Slot',
                 ),
               ),
             ),
