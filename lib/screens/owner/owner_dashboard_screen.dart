@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../core/constants.dart';
+import '../../core/date_utils.dart';
 import '../../models/booking.dart';
 import '../../providers/owner_provider.dart';
 import '../../providers/user_provider.dart';
@@ -12,40 +12,11 @@ import '../../providers/user_provider.dart';
 class OwnerDashboardScreen extends ConsumerWidget {
   const OwnerDashboardScreen({super.key});
 
-  String _todayStr() {
-    final now = DateTime.now();
-    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-  }
-
-  String _fmt(String time24) {
-    try {
-      final h = int.parse(time24.split(':')[0]);
-      final period = h < 12 ? 'AM' : 'PM';
-      final display = h == 0 ? 12 : h <= 12 ? h : h - 12;
-      return '$display:00 $period';
-    } catch (_) {
-      return time24;
-    }
-  }
-
-  String _sportEmoji(String sport) {
-    switch (sport.toLowerCase()) {
-      case 'football':
-        return '⚽';
-      case 'cricket':
-        return '🏏';
-      case 'badminton':
-        return '🏸';
-      default:
-        return '🏟️';
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(currentUserProvider);
     final bookingsAsync = ref.watch(ownerBookingsProvider);
-    final today = _todayStr();
+    final today = TurfDateUtils.todayString();
 
     final userName = userAsync.valueOrNull?.name.trim() ?? '';
     final greeting = userName.isNotEmpty ? 'Hello, $userName!' : 'Hello!';
@@ -110,8 +81,7 @@ class OwnerDashboardScreen extends ConsumerWidget {
                         ),
                         SizedBox(height: 4.h),
                         Text(
-                          DateFormat('EEEE, MMM d yyyy')
-                              .format(DateTime.now()),
+                          TurfDateUtils.formatDateLong(TurfDateUtils.todayString()),
                           style: TextStyle(
                             fontSize: 13.sp,
                             fontFamily: AppTextStyles.bodyFont,
@@ -142,8 +112,8 @@ class OwnerDashboardScreen extends ConsumerWidget {
                           child: _StatCard(
                             icon: Icons.currency_rupee_rounded,
                             label: "Today's Earnings",
-                            value: '₹${todayEarnings.toInt()}',
-                            iconColor: const Color(0xFF059669),
+                            value: AppFormat.price(todayEarnings),
+                            iconColor: AppColors.emerald,
                           ),
                         ),
                       ],
@@ -161,7 +131,7 @@ class OwnerDashboardScreen extends ConsumerWidget {
                             icon: Icons.upcoming_rounded,
                             label: 'Upcoming',
                             value: '${upcoming.length}',
-                            iconColor: const Color(0xFF2563EB),
+                            iconColor: AppColors.blue,
                           ),
                         ),
                         SizedBox(width: 12.w),
@@ -169,8 +139,8 @@ class OwnerDashboardScreen extends ConsumerWidget {
                           child: _StatCard(
                             icon: Icons.account_balance_wallet_rounded,
                             label: 'Total Earned',
-                            value: '₹${totalEarnings.toInt()}',
-                            iconColor: const Color(0xFF7C3AED),
+                            value: AppFormat.price(totalEarnings),
+                            iconColor: AppColors.purple,
                           ),
                         ),
                       ],
@@ -198,20 +168,42 @@ class OwnerDashboardScreen extends ConsumerWidget {
                   if (upcoming.isEmpty)
                     Padding(
                       padding: EdgeInsets.symmetric(
-                          horizontal: 20.w, vertical: 40.h),
+                          horizontal: 20.w, vertical: 32.h),
                       child: Center(
                         child: Column(
                           children: [
-                            Icon(Icons.event_available_rounded,
-                                size: 48.sp, color: AppColors.grey),
-                            SizedBox(height: 12.h),
+                            Container(
+                              width: 72.w,
+                              height: 72.w,
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryLight,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.calendar_month_rounded,
+                                size: 36.sp,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                            SizedBox(height: 16.h),
                             Text(
                               'No upcoming bookings',
                               style: TextStyle(
-                                fontSize: 14.sp,
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                                fontFamily: AppTextStyles.bodyFont,
+                              ),
+                            ),
+                            SizedBox(height: 6.h),
+                            Text(
+                              'Share your turf to start getting bookings.',
+                              style: TextStyle(
+                                fontSize: 13.sp,
                                 color: AppColors.textSecondary,
                                 fontFamily: AppTextStyles.bodyFont,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                           ],
                         ),
@@ -229,9 +221,9 @@ class OwnerDashboardScreen extends ConsumerWidget {
                         return _UpcomingCard(
                           booking: b,
                           isToday: isToday,
-                          sportEmoji: _sportEmoji(b.sport),
-                          timeLabel:
-                              '${_fmt(b.slotStartTime)} – ${_fmt(b.slotEndTime)}',
+                          sportEmoji: TurfDateUtils.sportEmoji(b.sport),
+                          timeLabel: TurfDateUtils.formatTimeRange(
+                              b.slotStartTime, b.slotEndTime),
                         );
                       },
                     ),
@@ -327,12 +319,7 @@ class _UpcomingCard extends StatelessWidget {
 
   String get _dateLabel {
     if (isToday) return 'Today';
-    try {
-      return DateFormat('EEE, d MMM')
-          .format(DateTime.parse(booking.slotDate));
-    } catch (_) {
-      return booking.slotDate;
-    }
+    return TurfDateUtils.formatDate(booking.slotDate);
   }
 
   @override
@@ -392,7 +379,7 @@ class _UpcomingCard extends StatelessWidget {
             ),
           ),
           Text(
-            '₹${booking.totalAmount.toInt()}',
+            AppFormat.price(booking.totalAmount),
             style: TextStyle(
               fontSize: 16.sp,
               fontWeight: FontWeight.w700,

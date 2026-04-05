@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../core/constants.dart';
+import '../../core/date_utils.dart';
 import '../../providers/owner_provider.dart';
 
 class OwnerBookingsScreen extends ConsumerStatefulWidget {
@@ -29,64 +30,11 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen> {
     _selectedDate = _dates[0];
   }
 
-  String _dateKey(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  String _dateKey(DateTime d) => TurfDateUtils.toDateString(d);
 
   bool _isToday(DateTime d) {
     final now = DateTime.now();
     return d.year == now.year && d.month == now.month && d.day == now.day;
-  }
-
-  String _fmt(String time24) {
-    try {
-      final h = int.parse(time24.split(':')[0]);
-      final period = h < 12 ? 'AM' : 'PM';
-      final display = h == 0 ? 12 : h <= 12 ? h : h - 12;
-      return '$display:00 $period';
-    } catch (_) {
-      return time24;
-    }
-  }
-
-  String _sportEmoji(String sport) {
-    switch (sport.toLowerCase()) {
-      case 'football':
-        return '⚽';
-      case 'cricket':
-        return '🏏';
-      case 'badminton':
-        return '🏸';
-      default:
-        return '🏟️';
-    }
-  }
-
-  Color _statusColor(String status) {
-    switch (status) {
-      case BookingStatus.confirmed:
-        return AppColors.primary;
-      case BookingStatus.pending:
-        return AppColors.warning;
-      case BookingStatus.cancelled:
-        return AppColors.error;
-      default:
-        return AppColors.grey;
-    }
-  }
-
-  String _statusLabel(String status) {
-    switch (status) {
-      case BookingStatus.confirmed:
-        return 'Confirmed';
-      case BookingStatus.pending:
-        return 'Pending';
-      case BookingStatus.cancelled:
-        return 'Cancelled';
-      case BookingStatus.completed:
-        return 'Completed';
-      default:
-        return status;
-    }
   }
 
   @override
@@ -197,18 +145,40 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.event_busy_rounded,
-                            size: 48.sp, color: AppColors.grey),
-                        SizedBox(height: 12.h),
+                        Container(
+                          width: 72.w,
+                          height: 72.w,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryLight,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.event_busy_rounded,
+                            size: 36.sp,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        SizedBox(height: 16.h),
                         Text(
                           _isToday(_selectedDate)
                               ? 'No bookings today'
                               : 'No bookings on this day',
                           style: TextStyle(
-                            fontSize: 15.sp,
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                            fontFamily: AppTextStyles.bodyFont,
+                          ),
+                        ),
+                        SizedBox(height: 6.h),
+                        Text(
+                          'Bookings will appear here once players reserve your turf.',
+                          style: TextStyle(
+                            fontSize: 13.sp,
                             color: AppColors.textSecondary,
                             fontFamily: AppTextStyles.bodyFont,
                           ),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
@@ -237,7 +207,7 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen> {
                             ),
                           ),
                           Text(
-                            '₹${dayEarnings.toInt()}',
+                            AppFormat.price(dayEarnings),
                             style: TextStyle(
                               fontSize: 14.sp,
                               fontWeight: FontWeight.w700,
@@ -272,7 +242,7 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen> {
                             ),
                             child: Row(
                               children: [
-                                Text(_sportEmoji(b.sport),
+                                Text(TurfDateUtils.sportEmoji(b.sport),
                                     style: TextStyle(fontSize: 28.sp)),
                                 SizedBox(width: 14.w),
                                 Expanded(
@@ -298,20 +268,20 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen> {
                                                 horizontal: 8.w,
                                                 vertical: 2.h),
                                             decoration: BoxDecoration(
-                                              color: _statusColor(b.status)
+                                              color: BookingStatus.color(b.status)
                                                   .withValues(alpha: 0.12),
                                               borderRadius:
                                                   BorderRadius.circular(8.r),
                                             ),
                                             child: Text(
-                                              _statusLabel(b.status),
+                                              BookingStatus.label(b.status),
                                               style: TextStyle(
                                                 fontSize: 10.sp,
                                                 fontWeight: FontWeight.w600,
                                                 fontFamily:
                                                     AppTextStyles.bodyFont,
                                                 color:
-                                                    _statusColor(b.status),
+                                                    BookingStatus.color(b.status),
                                               ),
                                             ),
                                           ),
@@ -326,7 +296,7 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen> {
                                                   AppColors.textSecondary),
                                           SizedBox(width: 4.w),
                                           Text(
-                                            '${_fmt(b.slotStartTime)} – ${_fmt(b.slotEndTime)}',
+                                            TurfDateUtils.formatTimeRange(b.slotStartTime, b.slotEndTime),
                                             style: TextStyle(
                                               fontSize: 12.sp,
                                               color:
@@ -341,7 +311,7 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen> {
                                   ),
                                 ),
                                 Text(
-                                  '₹${b.totalAmount.toInt()}',
+                                  AppFormat.price(b.totalAmount),
                                   style: TextStyle(
                                     fontSize: 16.sp,
                                     fontWeight: FontWeight.w700,

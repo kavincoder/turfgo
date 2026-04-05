@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,10 +26,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  /// Valid Indian mobile: 10 digits, starts with 6-9
+  bool _isValidPhone(String phone) {
+    return RegExp(r'^[6-9]\d{9}$').hasMatch(phone);
+  }
+
   Future<void> _sendOtp() async {
     final phone = _phoneController.text.trim();
-    if (phone.length != 10) {
-      setState(() => _error = 'Enter a valid 10-digit mobile number');
+    if (!_isValidPhone(phone)) {
+      setState(() => _error = 'Enter a valid 10-digit Indian mobile number');
       return;
     }
 
@@ -39,13 +45,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final repo = ref.read(authRepositoryProvider);
 
-    await repo.verifyPhoneNumber(
+    try {
+      await repo.verifyPhoneNumber(
       phoneNumber: '+91$phone',
       timeout: const Duration(seconds: 60),
       verificationCompleted: (PhoneAuthCredential credential) async {
-        // Auto-verification (Android only)
+        // Auto-verification (Android only) — route through splash for role check
         await repo.signInWithCredential(credential);
-        if (mounted) context.go('/home');
+        if (mounted) context.go('/');
       },
       verificationFailed: (FirebaseAuthException e) {
         if (mounted) {
@@ -67,6 +74,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       },
       codeAutoRetrievalTimeout: (String verificationId) {},
     );
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _error = e.code == 'resource-exhausted'
+              ? 'Too many OTP requests. Please try again tomorrow.'
+              : 'Something went wrong. Please try again.';
+        });
+      }
+    }
   }
 
   @override

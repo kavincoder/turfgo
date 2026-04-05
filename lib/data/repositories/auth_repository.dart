@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthRepository {
   final _auth = FirebaseAuth.instance;
@@ -16,7 +18,16 @@ class AuthRepository {
     required void Function(String, int?) codeSent,
     required void Function(String) codeAutoRetrievalTimeout,
     int? forceResendingToken,
-  }) {
+  }) async {
+    // Check rate limit server-side before triggering Firebase Auth OTP.
+    // Skipped in debug mode (simulator/testing) — CF may not be deployed yet.
+    // In release builds this is enforced; resource-exhausted blocks the request.
+    if (!kDebugMode) {
+      await FirebaseFunctions.instance
+          .httpsCallable('checkOtpRateLimit')
+          .call({'phone': phoneNumber});
+    }
+
     return _auth.verifyPhoneNumber(
       phoneNumber: phoneNumber,
       timeout: timeout,
@@ -51,6 +62,13 @@ class AuthRepository {
   }
 
   Future<void> ensureUserDoc(User user) => _createUserDocIfNeeded(user);
+
+  Future<void> signInWithEmailPassword(
+      String username, String password) async {
+    final email = '$username@turfgo.in';
+    await _auth.signInWithEmailAndPassword(email: email, password: password);
+    // No _createUserDocIfNeeded — owner docs are created manually by Kavin.
+  }
 
   Future<void> signOut() => _auth.signOut();
 }
