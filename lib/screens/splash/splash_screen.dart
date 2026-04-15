@@ -32,7 +32,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
     final firebaseUser = FirebaseAuth.instance.currentUser;
     if (firebaseUser == null) {
-      context.go('/login');
+      context.go('/home');
       return;
     }
 

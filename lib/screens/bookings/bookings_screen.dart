@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../core/constants.dart';
 import '../../core/date_utils.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../models/booking.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/booking_provider.dart';
 
 class BookingsScreen extends ConsumerWidget {
@@ -55,7 +57,9 @@ class BookingsScreen extends ConsumerWidget {
             ],
           ),
         ),
-        body: bookingsAsync.when(
+        body: ref.watch(authStateProvider).valueOrNull == null
+            ? _GuestBookings(onLogin: () => context.push('/login'))
+            : bookingsAsync.when(
           loading: () => const _ShimmerList(),
           error: (e, _) => _ErrorState(),
           data: (bookings) {
@@ -85,6 +89,96 @@ class BookingsScreen extends ConsumerWidget {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+// ── Guest state ───────────────────────────────────────────────────────────────
+
+class _GuestBookings extends StatelessWidget {
+  final VoidCallback onLogin;
+  const _GuestBookings({required this.onLogin});
+
+  @override
+  Widget build(BuildContext context) {
+    return _GuestPlaceholder(
+      icon: Icons.calendar_month_outlined,
+      title: 'Sign in to see your bookings',
+      subtitle: 'Your upcoming and past bookings will appear here.',
+      onLogin: onLogin,
+    );
+  }
+}
+
+/// Reusable centred sign-in prompt used by both Bookings and Profile screens.
+class _GuestPlaceholder extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onLogin;
+
+  const _GuestPlaceholder({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onLogin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 32.w),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 64.sp, color: AppColors.grey),
+            SizedBox(height: 16.h),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.w700,
+                fontFamily: AppTextStyles.bodyFont,
+                color: AppColors.textPrimary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 14.sp,
+                fontFamily: AppTextStyles.bodyFont,
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 32.h),
+            SizedBox(
+              width: double.infinity,
+              height: 52.h,
+              child: ElevatedButton(
+                onPressed: onLogin,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14.r),
+                  ),
+                  elevation: 0,
+                  textStyle: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: AppTextStyles.bodyFont,
+                  ),
+                ),
+                child: const Text('Sign In / Sign Up'),
+              ),
+            ),
+          ],
         ),
       ),
     );

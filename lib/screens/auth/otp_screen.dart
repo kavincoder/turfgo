@@ -68,8 +68,14 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         smsCode: _otp,
       );
       await ref.read(authRepositoryProvider).signInWithCredential(credential);
-      // Route through splash so role-based routing (admin/owner/player) runs
-      if (mounted) context.go('/');
+      if (!mounted) return;
+      // If pushed from within the app (e.g. booking flow), pop back.
+      // Otherwise route through splash for role-based routing.
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/');
+      }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         setState(() {
@@ -93,8 +99,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         timeout: const Duration(seconds: 60),
         forceResendingToken: widget.resendToken,
         verificationCompleted: (PhoneAuthCredential credential) async {
-          await repo.signInWithCredential(credential);
-          if (mounted) context.go('/');
+          // Auto-verification disabled — users must always enter OTP manually.
         },
         verificationFailed: (FirebaseAuthException e) {
           if (mounted) {
