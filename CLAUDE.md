@@ -66,8 +66,66 @@ These are hard rules. Never violate them regardless of convenience.
 
 ### Before Public Launch
 - Firebase App Check must be configured
-- Razorpay webhook must be implemented
-- All 3 critical CF bugs must be fixed (totalAmount recalculation, receipt null crash, submitOwnerRequest lock bug)
+- Razorpay webhook must be implemented (endpoint: razorpayWebhook CF, already deployed)
+- Upgrade Cloud Functions from Node 20 → Node 22 before 2026-10-30 (Node 20 deprecated)
+
+## Known Bugs & Fixes (Hard-Won — Never Reintroduce)
+
+### Cloud Run IAM — Gen 2 Functions Return 401
+Firebase Gen 2 callable functions run on Cloud Run. After deploy, they default to
+requiring auth at the infrastructure level. Fix: grant `allUsers` the `roles/run.invoker`
+role on each Cloud Run service via the Google Cloud Console or REST API.
+This must be done after EVERY initial deploy (re-deploys preserve it).
+
+### Razorpay Secrets Have Trailing Newlines
+When Firebase Secret Manager injects secrets as env vars in Cloud Run, they include a
+trailing `\n`. Always `.trim()` when reading:
+```typescript
+const keyId = process.env.RAZORPAY_KEY_ID?.trim();
+const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
+```
+
+### functions/.env Conflicts With Secret Manager
+If `functions/.env` defines `RAZORPAY_KEY_ID` or `RAZORPAY_KEY_SECRET` as plain env
+vars AND the function declares them as secrets, Cloud Run deployment fails with:
+"Secret environment variable overlaps non secret environment variable."
+Fix: keep `functions/.env` empty of any key that's also in Secret Manager.
+
+### TypeScript Build — Unused Variable
+`functions/src/index.ts` line ~962 had `const totalAmount = webhookAdvancePaid;`
+that was never used. TypeScript strict mode treats this as a build error. Remove it.
+Run `npm --prefix functions run build` before every deploy to catch this.
+
+### Receipt String RangeError
+`'tgo_\${DateTime.now().millisecondsSinceEpoch}'.substring(0, 40)` throws RangeError
+because the string is only 17 chars. Always guard: use the string as-is (it's under 40).
+
+### OTP/Login Navigation Loop
+Never call `context.pop()` from a non-top widget's listener — in GoRouter it always
+pops the TOP route. After OTP verification, pop both OTP and login synchronously:
+```dart
+final router = GoRouter.of(context);
+if (router.canPop()) router.pop(); // pop OTP
+if (router.canPop()) router.pop(); // pop login
+```
+Do NOT use `ref.listen` in login_screen to auto-pop — it fires while OTP is on top
+and pops OTP instead of login, causing a loop.
+
+### Android Auto-Verification
+The `verificationCompleted` callback in `verifyPhoneNumber` auto-signs in users on
+Android without showing the OTP screen. This is a privacy issue. Always make it a no-op:
+```dart
+verificationCompleted: (PhoneAuthCredential credential) async {
+  // Auto-verification disabled — users must always enter OTP manually.
+},
+```
+
+## Navigation Rules
+
+- Sign out → `context.go('/home')` — never `context.go('/login')`
+- Unauthenticated users: only `/owner` and `/admin` routes are blocked — all browsing is public
+- Login gate is at `slot_selection._proceed()` — not at router level
+- After OTP: double-pop (OTP + login) synchronously so user returns directly to booking flow
 
 ## Business Context
 
@@ -77,15 +135,22 @@ These are hard rules. Never violate them regardless of convenience.
 - **Commission:** Configurable per business decision — currently 8% per booking
 - **Owner agreement:** Owners in Madurai have verbally agreed to commission model
 - **Competition:** Hudle and Playo operate in metros — stay under the radar until 3+ cities
+- **Test turf:** "Kavin's Turf" seeded in Firestore under `cities/city_madurai`
+- **Razorpay:** Test mode keys in Firebase Secret Manager. Key ID: rzp_test_... (never hardcode)
 
 ## Current Status
 
 | Item | Status |
 |---|---|
-| Firestore security rules | Deployed and production-grade |
-| Cloud Functions (lockSlot, createRazorpayOrder, createBooking) | Written, NOT deployed |
-| Firebase Blaze plan | Pending activation |
-| Razorpay | Test mode only, not verified |
-| Razorpay webhook | Not implemented |
+| Firestore security rules | Deployed, production-grade |
+| All 8 Cloud Functions | Deployed ✅ (Node 20, us-central1) |
+| Cloud Run IAM | Fixed — allUsers:run.invoker on all 8 services ✅ |
+| Firebase Blaze plan | Active ✅ |
+| Razorpay | Test mode, keys in Secret Manager ✅ |
+| Razorpay webhook | Deployed, NOT fully tested end-to-end |
+| Guest browsing | Working — login only required at payment ✅ |
+| Advance payment (20%) | Working — shown correctly in booking confirmation ✅ |
 | App Check | Not configured |
 | CI/CD | Not set up |
+| Node 20 → 22 upgrade | Pending (deadline: 2026-10-30) |
+| App icon | Still default Flutter icon |
