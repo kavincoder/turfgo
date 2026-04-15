@@ -193,3 +193,15 @@ class Sports {
     tennis,
   ];
 }
+
+/// App-wide contact & config constants.
+/// Update these before launch.
+class AppConfig {
+  AppConfig._();
+
+  static const String supportWhatsApp = '+91 98765 43210';
+  static const String supportEmail = 'support@turfgo.in';
+  static const String supportHours = '9 AM – 9 PM, every day';
+  static const String privacyEmail = 'privacy@turfgo.in';
+  static const String legalEmail = 'legal@turfgo.in';
+}

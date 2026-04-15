@@ -8,7 +8,10 @@ final userRepositoryProvider = Provider<UserRepository>(
 );
 
 final currentUserProvider = StreamProvider<AppUser?>((ref) {
-  final uid = ref.watch(authStateProvider).valueOrNull?.uid;
-  if (uid == null) return Stream.value(null);
+  // Watch authStateProvider so this provider automatically rebuilds
+  // whenever the signed-in user changes (sign out, sign in, switch accounts).
+  final authUser = ref.watch(authStateProvider).valueOrNull;
+  final uid = authUser?.uid;
+  if (uid == null) return const Stream.empty();
   return ref.watch(userRepositoryProvider).userStream(uid);
 });

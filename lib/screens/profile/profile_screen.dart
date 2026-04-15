@@ -132,19 +132,19 @@ class ProfileScreen extends ConsumerWidget {
             _SupportRow(
               icon: Icons.chat_rounded,
               label: 'WhatsApp Us',
-              value: '+91 98765 43210',
+              value: AppConfig.supportWhatsApp,
             ),
             SizedBox(height: 12.h),
             _SupportRow(
               icon: Icons.email_outlined,
               label: 'Email',
-              value: 'support@turfgo.in',
+              value: AppConfig.supportEmail,
             ),
             SizedBox(height: 12.h),
             _SupportRow(
               icon: Icons.access_time_rounded,
               label: 'Support Hours',
-              value: 'Mon–Sat, 9 AM – 7 PM',
+              value: AppConfig.supportHours,
             ),
             SizedBox(height: 16.h),
             Text(
@@ -233,7 +233,7 @@ class ProfileScreen extends ConsumerWidget {
               _PolicySection(
                 title: 'Contact',
                 body:
-                    'For privacy concerns, email us at privacy@turfgo.in or WhatsApp +91 98765 43210.',
+                    'For privacy concerns, email us at ${AppConfig.privacyEmail} or WhatsApp ${AppConfig.supportWhatsApp}.',
               ),
             ],
           ),
@@ -319,7 +319,7 @@ class ProfileScreen extends ConsumerWidget {
               _PolicySection(
                 title: 'Contact',
                 body:
-                    'For terms-related queries, email legal@turfgo.in or WhatsApp +91 98765 43210.',
+                    'For terms-related queries, email ${AppConfig.legalEmail} or WhatsApp ${AppConfig.supportWhatsApp}.',
               ),
             ],
           ),
@@ -660,6 +660,70 @@ class _Body extends ConsumerWidget {
               ],
             ),
           ),
+
+          SizedBox(height: 20.h),
+
+          // ── Owner portal login — visible to players only ──────
+          if (user?.role != UserRole.admin && user?.role != UserRole.owner)
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w),
+              child: GestureDetector(
+                onTap: () => context.push('/owner-login'),
+                child: Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14.r),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.35)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36.w,
+                        height: 36.w,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight,
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                        child: Icon(
+                          Icons.storefront_rounded,
+                          color: AppColors.primary,
+                          size: 18.sp,
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Turf Owner?',
+                              style: TextStyle(
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: AppTextStyles.bodyFont,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              'Login to your owner dashboard',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                fontFamily: AppTextStyles.bodyFont,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios_rounded,
+                          size: 14.sp, color: AppColors.grey),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
           SizedBox(height: 24.h),
 
