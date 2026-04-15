@@ -69,13 +69,13 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       );
       await ref.read(authRepositoryProvider).signInWithCredential(credential);
       if (!mounted) return;
-      // If pushed from within the app (e.g. booking flow), pop back.
-      // Otherwise route through splash for role-based routing.
-      if (context.canPop()) {
-        context.pop();
-      } else {
-        context.go('/');
-      }
+      final router = GoRouter.of(context);
+      // Pop both OTP and login in one synchronous sequence so neither
+      // screen is ever painted — user goes directly to the calling screen.
+      if (router.canPop()) router.pop(); // pop OTP → login
+      if (router.canPop()) router.pop(); // pop login → slot selection / booking
+      // If nothing was poppable (login was root), the router redirect
+      // (isLoggedIn && isAuthRoute → '/') handles navigation automatically.
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         setState(() {

@@ -88,14 +88,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     // When pushed from within the app (e.g. booking flow), pop back after login.
     // Only react to NEW logins (null → non-null), not existing sessions.
-    ref.listen(authStateProvider, (previous, next) {
-      if (previous?.valueOrNull == null &&
-          next.valueOrNull != null &&
-          context.canPop()) {
-        context.pop();
-      }
-    });
-
     return Scaffold(
       backgroundColor: AppColors.white,
       body: SafeArea(

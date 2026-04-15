@@ -91,7 +91,7 @@ class ProfileScreen extends ConsumerWidget {
     );
     if (confirmed == true) {
       await FirebaseAuth.instance.signOut();
-      if (context.mounted) context.go('/login');
+      if (context.mounted) context.go('/home');
     }
   }
 
