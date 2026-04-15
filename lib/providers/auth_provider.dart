@@ -41,7 +41,9 @@ class RouterNotifier extends ChangeNotifier {
 
     final isAuthRoute = loc == '/login' || loc == '/otp';
 
-    if (!isLoggedIn && !isAuthRoute) return '/login';
+    // Only owner/admin routes require auth — turf browsing is public
+    final isProtectedRoute = loc.startsWith('/owner') || loc.startsWith('/admin');
+    if (!isLoggedIn && isProtectedRoute) return '/login';
     // Logged-in user on login/otp → send to splash for role routing
     if (isLoggedIn && isAuthRoute) return '/';
     return null;

@@ -1,4 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
@@ -110,8 +112,15 @@ class _SlotSelectionScreenState
     });
   }
 
-  void _proceed() {
+  Future<void> _proceed() async {
     if (_rangeStart == null) return;
+
+    // Gate: require login before booking
+    if (FirebaseAuth.instance.currentUser == null) {
+      await context.push('/login');
+      if (!mounted) return;
+      if (FirebaseAuth.instance.currentUser == null) return;
+    }
 
     // Collect the actual Slot objects for the selected time range
     final slotsData = ref

@@ -263,8 +263,8 @@ export const createRazorpayOrder = onCall(
 
     const amountInPaise = advanceAmount * 100;
 
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    const keyId = process.env.RAZORPAY_KEY_ID?.trim();
+    const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
 
     if (!keyId || !keySecret) {
       throw new HttpsError("internal", "Payment configuration error.");
@@ -457,7 +457,7 @@ export const createBooking = onCall(
     // ── Verify Razorpay HMAC signature ─────────────────────────────────────
     // Without this, anyone could call this function with a fake paymentId
     // and get a confirmed booking without actually paying.
-    const secret = process.env.RAZORPAY_KEY_SECRET;
+    const secret = process.env.RAZORPAY_KEY_SECRET?.trim();
     if (!secret) {
       throw new HttpsError("internal", "Payment configuration error.");
     }
@@ -822,7 +822,7 @@ export const razorpayWebhook = onRequest(
       return;
     }
 
-    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET?.trim();
     if (!webhookSecret) {
       console.error("Webhook: RAZORPAY_WEBHOOK_SECRET not configured");
       res.status(500).send("Configuration error");
@@ -959,7 +959,6 @@ export const razorpayWebhook = onRequest(
     const webhookOwnerPayout = webhookAdvancePaid - webhookCommission;
     const webhookBalanceDueAtVenue = webhookTotalSlotPrice - webhookAdvancePaid;
 
-    const totalAmount = webhookAdvancePaid; // what was actually charged
     const expectedAmountInPaise = webhookAdvancePaid * 100;
 
     // Belt-and-suspenders: captured amount must match what we calculated
@@ -1168,8 +1167,8 @@ export const cancelBooking = onCall(
     // Initiate Razorpay refund outside the transaction (network call)
     if (refundAmount > 0 && paymentId) {
       try {
-        const keyId = process.env.RAZORPAY_KEY_ID!;
-        const keySecret = process.env.RAZORPAY_KEY_SECRET!;
+        const keyId = process.env.RAZORPAY_KEY_ID!.trim();
+        const keySecret = process.env.RAZORPAY_KEY_SECRET!.trim();
         const authHeader = Buffer.from(`${keyId}:${keySecret}`).toString(
           "base64"
         );

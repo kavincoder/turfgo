@@ -10,6 +10,9 @@ import '../../core/constants.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../models/slot.dart';
 import '../../models/turf.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:go_router/go_router.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../booking_success/booking_success_screen.dart';
 
@@ -58,6 +61,7 @@ class _BookingConfirmationScreenState
   String get _slotStartTime => widget.selectedSlots.first.startTime;
   String get _slotEndTime => widget.selectedSlots.last.endTime;
   int get _totalAmount => (widget.turf.pricePerHour * widget.duration).toInt();
+  int get _advanceAmount => (_totalAmount * 0.20).round();
 
   @override
   void initState() {
@@ -81,6 +85,9 @@ class _BookingConfirmationScreenState
     });
 
     try {
+      // Force-refresh token to avoid stale auth causing unauthenticated errors
+      await FirebaseAuth.instance.currentUser?.getIdToken(true);
+
       final slotIds = widget.selectedSlots.map((s) => s.id).toList();
 
       // Step 1: Lock all selected slots for 5 minutes
@@ -91,8 +98,10 @@ class _BookingConfirmationScreenState
 
       // Step 2: Create Razorpay order server-side.
       // Amount is calculated from Firestore pricePerHour — never sent from client.
-      final receipt =
-          'tgo_${DateTime.now().millisecondsSinceEpoch}'.substring(0, 40);
+      final receiptRaw = 'tgo_${DateTime.now().millisecondsSinceEpoch}';
+      final receipt = receiptRaw.length > 40
+          ? receiptRaw.substring(0, 40)
+          : receiptRaw;
       final orderData = await _paymentRepo.createRazorpayOrder(
         turfId: widget.turf.id,
         turfName: widget.turf.name,
@@ -127,15 +136,17 @@ class _BookingConfirmationScreenState
         'modal': {'backdropclose': false},
       });
       // State stays loading until a Razorpay callback fires
-    } on FirebaseFunctionsException catch (e) {
+    } on FirebaseFunctionsException catch (e, st) {
+      debugPrint('[Payment] FirebaseFunctionsException code=${e.code} message=${e.message}\n$st');
       setState(() {
         _paymentState = _PaymentState.failed;
         _errorMessage = _friendlyFunctionsError(e);
       });
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[Payment] Unexpected error: $e\n$st');
       setState(() {
         _paymentState = _PaymentState.failed;
-        _errorMessage = 'Something went wrong. Please try again.';
+        _errorMessage = 'Error: $e';
       });
     }
   }
@@ -224,6 +235,7 @@ class _BookingConfirmationScreenState
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
     final isLoading = _paymentState == _PaymentState.loading;
+    final isLoggedIn = ref.watch(authStateProvider).valueOrNull != null;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -570,16 +582,29 @@ class _BookingConfirmationScreenState
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Total Payable',
-                        style: TextStyle(
-                          fontSize: 13.sp,
-                          color: AppColors.textSecondary,
-                          fontFamily: AppTextStyles.bodyFont,
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Advance Payable',
+                            style: TextStyle(
+                              fontSize: 13.sp,
+                              color: AppColors.textSecondary,
+                              fontFamily: AppTextStyles.bodyFont,
+                            ),
+                          ),
+                          Text(
+                            '₹${_totalAmount - _advanceAmount} paid at venue',
+                            style: TextStyle(
+                              fontSize: 11.sp,
+                              color: AppColors.textSecondary,
+                              fontFamily: AppTextStyles.bodyFont,
+                            ),
+                          ),
+                        ],
                       ),
                       Text(
-                        '₹$_totalAmount',
+                        '₹$_advanceAmount',
                         style: TextStyle(
                           fontSize: 20.sp,
                           fontWeight: FontWeight.w700,
@@ -591,7 +616,21 @@ class _BookingConfirmationScreenState
                   ),
                   SizedBox(height: 10.h),
                   ElevatedButton(
-                    onPressed: isLoading ? null : _startPayment,
+                    onPressed: isLoading ? null : () async {
+                      if (!isLoggedIn) {
+                        await context.push('/login');
+                        if (!mounted) return;
+                        setState(() {
+                          _paymentState = _PaymentState.idle;
+                          _errorMessage = null;
+                        });
+                        if (FirebaseAuth.instance.currentUser != null) {
+                          _startPayment();
+                        }
+                      } else {
+                        _startPayment();
+                      }
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       disabledBackgroundColor:
@@ -627,9 +666,11 @@ class _BookingConfirmationScreenState
                             ],
                           )
                         : Text(
-                            _paymentState == _PaymentState.failed
-                                ? 'Try Again'
-                                : 'Pay ₹$_totalAmount',
+                            !isLoggedIn
+                                ? 'Log In to Continue'
+                                : _paymentState == _PaymentState.failed
+                                    ? 'Try Again'
+                                    : 'Pay ₹$_advanceAmount',
                             style: TextStyle(
                               fontSize: 17.sp,
                               fontWeight: FontWeight.w700,

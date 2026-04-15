@@ -9,6 +9,6 @@ final userRepositoryProvider = Provider<UserRepository>(
 
 final currentUserProvider = StreamProvider<AppUser?>((ref) {
   final uid = ref.watch(authStateProvider).valueOrNull?.uid;
-  if (uid == null) return const Stream.empty();
+  if (uid == null) return Stream.value(null);
   return ref.watch(userRepositoryProvider).userStream(uid);
 });

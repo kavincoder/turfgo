@@ -356,17 +356,107 @@ class ProfileScreen extends ConsumerWidget {
         ),
         error: (_, __) =>
             const Center(child: Text('Could not load profile')),
-        data: (user) => _Body(
+        data: (user) => user == null
+            ? _GuestProfile(onLogin: () => context.push('/login'))
+            : _Body(
           user: user,
           phone: phone,
           initials: _initials(user, phone),
           onMyBookings: onMyBookings,
           onEditName: (ctx, ref) =>
-              _editName(ctx, ref, user?.name.trim() ?? ''),
+              _editName(ctx, ref, user.name.trim()),
           onSignOut: _signOut,
           onHelpSupport: _showHelpSupport,
           onPrivacyPolicy: _showPrivacyPolicy,
           onTermsOfService: _showTermsOfService,
+        ),
+      ),
+    );
+  }
+}
+
+class _GuestProfile extends StatelessWidget {
+  final VoidCallback onLogin;
+  const _GuestProfile({required this.onLogin});
+
+  @override
+  Widget build(BuildContext context) {
+    return _GuestPlaceholder(
+      icon: Icons.person_outline_rounded,
+      title: 'Sign in to view your profile',
+      subtitle: 'Create an account or log in to manage bookings and more.',
+      onLogin: onLogin,
+    );
+  }
+}
+
+/// Reusable centred sign-in prompt (same widget as in bookings_screen.dart).
+class _GuestPlaceholder extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onLogin;
+
+  const _GuestPlaceholder({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onLogin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 32.w),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 64.sp, color: AppColors.grey),
+            SizedBox(height: 16.h),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.w700,
+                fontFamily: AppTextStyles.bodyFont,
+                color: AppColors.textPrimary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 14.sp,
+                fontFamily: AppTextStyles.bodyFont,
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 32.h),
+            SizedBox(
+              width: double.infinity,
+              height: 52.h,
+              child: ElevatedButton(
+                onPressed: onLogin,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14.r),
+                  ),
+                  elevation: 0,
+                  textStyle: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: AppTextStyles.bodyFont,
+                  ),
+                ),
+                child: const Text('Sign In / Sign Up'),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -50,9 +50,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       phoneNumber: '+91$phone',
       timeout: const Duration(seconds: 60),
       verificationCompleted: (PhoneAuthCredential credential) async {
-        // Auto-verification (Android only) — route through splash for role check
-        await repo.signInWithCredential(credential);
-        if (mounted) context.go('/');
+        // Auto-verification disabled — users must always enter OTP manually.
       },
       verificationFailed: (FirebaseAuthException e) {
         if (mounted) {
@@ -88,6 +86,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // When pushed from within the app (e.g. booking flow), pop back after login.
+    // Only react to NEW logins (null → non-null), not existing sessions.
+    ref.listen(authStateProvider, (previous, next) {
+      if (previous?.valueOrNull == null &&
+          next.valueOrNull != null &&
+          context.canPop()) {
+        context.pop();
+      }
+    });
+
     return Scaffold(
       backgroundColor: AppColors.white,
       body: SafeArea(

@@ -61,7 +61,7 @@ service cloud.firestore {
     // Public read for authenticated users. Write is admin-only.
 
     match /cities/{cityId} {
-      allow read:  if isAuth();
+      allow read:  if true; // public — needed for guest browsing
       allow write: if isAdmin();
     }
 
@@ -73,7 +73,7 @@ service cloud.firestore {
     // • Delete: admin only
 
     match /turfs/{turfId} {
-      allow read:   if isAuth();
+      allow read:   if true; // public — turf discovery is open to guests
       allow create: if isAdmin();
 
       allow update: if isAdmin()
@@ -90,7 +90,7 @@ service cloud.firestore {
       //        server-side so payment cannot be bypassed from the client.
 
       match /slots/{slotId} {
-        allow read:  if isAuth();
+        allow read:  if true; // public — slot availability visible to guests
         allow write: if false; // Cloud Functions (admin SDK) only
       }
     }
