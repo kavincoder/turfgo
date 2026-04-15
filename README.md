@@ -325,16 +325,20 @@ razorpayWebhook() CF (backup path)
 
 | Component | Status |
 |---|---|
-| Flutter app UI | Complete for player, owner, admin |
-| Firestore security rules | Production-grade, deployed |
-| Cloud Functions source | Written (968 lines TypeScript), not deployed |
-| Firebase Blaze plan | Pending activation |
-| Razorpay | Test mode, webhook written but not deployed |
-| OTP rate limiting | Written in CF, not deployed |
-| App Check | Configured in code, enforcement not enabled in Console |
-| Crashlytics | Imported, not initialised in main.dart |
+| Flutter app UI | Complete for player, owner, admin ✅ |
+| Firestore security rules | Production-grade, deployed ✅ |
+| Cloud Functions (all 8) | Deployed on Firebase (Node 20, us-central1) ✅ |
+| Cloud Run IAM | Fixed — allUsers:run.invoker on all 8 services ✅ |
+| Firebase Blaze plan | Active ✅ |
+| Razorpay | Test mode, keys in Secret Manager, webhook deployed ✅ |
+| OTP rate limiting | Deployed in CF ✅ |
+| Guest browsing | Working — login gate at payment only ✅ |
+| Advance payment (20%) | Working — shown correctly in booking flow ✅ |
+| App Check | Not configured ⚠️ |
+| Crashlytics | Imported, not initialised in main.dart ⚠️ |
+| iOS bundle ID | `com.example.turfgo` — placeholder, must update ⚠️ |
+| Node 20 → 22 upgrade | Pending (deadline: 2026-10-30) ⚠️ |
 | CI/CD | Not set up |
-| iOS bundle ID | `com.example.turfgo` — placeholder, must update |
 | Self-serve cancellation | Not built (shows WhatsApp contact as interim) |
 | Payout flow | Not built |
 | Push notifications | Not built (firebase_messaging imported) |
