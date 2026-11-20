@@ -6,11 +6,11 @@
  *
  * Safe to run multiple times — skips slots that already have courtCount set.
  *
- * Usage: node migrate_slots.js
+ * Usage: node scripts/migrate_slots.js
  */
 
-const admin = require('./functions/node_modules/firebase-admin');
-const serviceAccount = require('./serviceAccount.json');
+const admin = require('../functions/node_modules/firebase-admin');
+const serviceAccount = require('../serviceAccount.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),

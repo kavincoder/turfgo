@@ -7,13 +7,13 @@
  *   3. Links existing turf →  sets ownerId on turfs/<turfId>
  *
  * Usage:
- *   node create_owner.js --name "Ace Badminton" --username "aceturf" \
- *                        --password "Pass@123" --turfId "turf_ace_badminton" \
+ *   node scripts/create_owner.js --name "Ace Badminton" --username "aceturf" \
+ *                        --password "<owner-password>" --turfId "turf_ace_badminton" \
  *                        --city "madurai"
  */
 
-const admin = require('./functions/node_modules/firebase-admin');
-const serviceAccount = require('./serviceAccount.json');
+const admin = require('../functions/node_modules/firebase-admin');
+const serviceAccount = require('../serviceAccount.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
@@ -46,10 +46,10 @@ if (missing.length > 0) {
   console.error('❌  Missing required arguments:', missing.join(', '));
   console.error('');
   console.error('Usage example:');
-  console.error('  node create_owner.js \\');
+  console.error('  node scripts/create_owner.js \\');
   console.error('    --name "Ace Badminton" \\');
   console.error('    --username "aceturf" \\');
-  console.error('    --password "Pass@123" \\');
+  console.error('    --password "<owner-password>" \\');
   console.error('    --turfId "turf_ace_badminton" \\');
   console.error('    --city "madurai"');
   process.exit(1);

@@ -89,3 +89,6 @@ generate_audit*.py
 # Logs
 *.log
 pglite-debug.log
+
+# Firebase Hosting deploy cache
+.firebase/
