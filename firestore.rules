@@ -80,7 +80,7 @@ service cloud.firestore {
         || (isTurfOwner(turfId)
             // Owners cannot touch financial or status fields
             && !request.resource.data.diff(resource.data).affectedKeys()
-                .hasAny(['ownerId', 'cityId', 'pricePerHour', 'rating', 'isActive', 'commissionRate']));
+                .hasAny(['ownerId', 'cityId', 'pricePerHour', 'rating', 'ratingCount', 'isActive', 'commissionRate']));
 
       allow delete: if isAdmin();
 

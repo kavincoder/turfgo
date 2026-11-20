@@ -14,9 +14,15 @@ class OwnerRequestRepository {
   /// Submit a new owner registration request via Cloud Function.
   /// Enforces rate limit (2/day) and blocks duplicate pending requests.
   Future<String> submitRequest(OwnerRequest request) async {
+    // toMap() contains FieldValue.serverTimestamp() (and server-owned status
+    // fields), which can't be sent to a callable. The CF sets those itself.
+    final payload = request.toMap()
+      ..remove('createdAt')
+      ..remove('status')
+      ..remove('rejectionReason');
     final result = await _functions
         .httpsCallable('submitOwnerRequest')
-        .call(request.toMap());
+        .call(payload);
     return result.data['requestId'] as String;
   }
 

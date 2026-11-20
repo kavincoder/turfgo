@@ -314,15 +314,21 @@ verificationCompleted: (PhoneAuthCredential credential) async {
 
 ## Known Issues and Active Constraints
 
+### Fixed in Nov 2026 (never reintroduce)
+- **Booking created twice for one payment:** `createBooking` and `razorpayWebhook` now read the `pendingOrders` doc AND query `bookings` by `razorpayOrderId` *inside* their transactions. A second path returns the existing booking / "Already processed" instead of creating another.
+- **Nested array in `bookingIds`:** use `FieldValue.arrayUnion(id)`, never `arrayUnion([id])` — Firestore rejects nested arrays, so every booking write failed.
+- **Multi-slot cancel:** `cancelBooking` reads all slots before writing any. Cancel no longer clears `lockedBy`/`lockedUntil` (that wiped other players' active locks and owner blocks).
+- **Webhook paid-but-slot-taken:** returns 200 and flags the pending order `needsRefund: true` (status `paid_slot_unavailable`) instead of a 500 that Razorpay retries for ~24h. Refunds for these are manual.
+- **Owner registration:** the app sent `userPhone` ("+91…") and a `FieldValue` timestamp; `submitOwnerRequest` now accepts `userPhone`, normalises it, and stores area, hours, amenities and photos. The repository strips `createdAt`/`status`/`rejectionReason` before calling.
+- **Missing CFs added:** `approveOwnerRequest` (creates the turf, promotes the user to owner, marks the request approved), `rejectOwnerRequest`, `submitReview` (verified booking required, one review per user per turf, updates `rating`/`ratingCount`).
+
 ### Known Open Bugs (Not Yet Fixed)
-- **Double booking from one payment:** `createBooking` reads `pendingOrders` outside its transaction, and `razorpayWebhook` checks for an existing booking outside its transaction. Both can succeed for the same order on multi-court slots. Fix: read the `pendingOrders` doc inside each transaction and bail out if it's gone.
-- **Multi-slot cancel fails:** `cancelBooking` does `tx.get` on the next slot after `tx.update` on the previous one. Firestore transactions require all reads before any writes. Fix: read all slots first, then write.
-- **Missing Cloud Functions the client calls:** `approveOwnerRequest`, `rejectOwnerRequest` (`owner_request_repository.dart`) and `submitReview` (`review_repository.dart`). Admin approval and review submission fail until these exist.
+- **None of the Nov 2026 Cloud Function changes are deployed.** Run `npm --prefix functions run build` then `firebase deploy --only functions,firestore:rules`.
 - **Admin role change blocked by rules:** `admin_repository.dart` `updateUserRole` writes another user's `users.role` directly, but the `users` rule only allows self-updates (and never role changes). Needs a Cloud Function. (The `turfs.isActive` toggle is fine — admins may update turfs.)
 
 ### Not Yet Built (Do Not Mark as Complete)
 - Push notifications (firebase_messaging imported, no logic implemented)
-- Reviews write path (UI and repository exist; the `submitReview` CF does not)
+- Review submit UI (the `submitReview` CF and repository exist; no screen calls them yet)
 - Payout flow for owners (`payoutStatus: "pending"` is written on bookings, nothing processes it)
 - City selector for players
 - Photo upload for existing turfs (photos can be uploaded only during owner registration)
