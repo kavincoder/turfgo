@@ -387,7 +387,7 @@ verificationCompleted: (PhoneAuthCredential credential) async {
 | App icon | Still default Flutter icon |
 | iOS bundle ID | `in.turfgo.app` |
 | Android application ID | `in.turfgo.app` |
-| README.md | Needs a portfolio rewrite |
+| README.md | Rewritten as a portfolio case study (Nov 2026) |
 | Self-serve cancellation | Built (`cancelBooking` CF + bookings screen); fails for multi-slot bookings |
 | Payout flow | NOT built |
 | Push notifications | NOT built |
