@@ -14,7 +14,7 @@ Read this entire file before writing any code. Every rule here exists for a reas
 > TurfGo as a business. Work now targets portfolio quality — a clean repo, bug fixes, tests,
 > CI, a README case study and a demo — not launch features.
 
-- **Stack:** Flutter (Dart ^3.8.1) + Firebase (Firestore, Auth, Storage, Crashlytics, App Check) + Cloud Functions (TypeScript, Node 20, v2) + Razorpay payments
+- **Stack:** Flutter (Dart ^3.8.1; toolchain Flutter 3.50 / Dart 3.14, iOS plugins via Swift Package Manager) + Firebase (Firestore, Auth, Storage, Crashlytics, App Check) + Cloud Functions (TypeScript, Node 20, v2) + Razorpay payments
 - **State management:** Riverpod 2.x + repository pattern
 - **Navigation:** GoRouter only — never use `Navigator.push` directly
 - **Roles:** `player`, `owner`, `admin` — use `UserRole` constants, never magic strings
@@ -301,6 +301,14 @@ verificationCompleted: (PhoneAuthCredential credential) async {
 },
 ```
 
+### iOS Build — Crashlytics Symbol Upload Step (Flutter 3.50+)
+The Xcode build phase `FlutterFire: "flutterfire upload-crashlytics-symbols"` needs the
+FlutterFire CLI (`dart pub global activate flutterfire_cli`). With Swift Package Manager,
+Flutter checks Firebase out under `build/ios/SourcePackages/`, not DerivedData, so the
+script's default path fails. The script now (a) exits early for `Debug` builds and (b) falls
+back to `${SRCROOT}/../build/ios/SourcePackages/...`. Re-running `flutterfire configure`
+may regenerate the script and undo this — re-apply if simulator builds start failing.
+
 ---
 
 ## Navigation Rules
@@ -366,7 +374,7 @@ verificationCompleted: (PhoneAuthCredential credential) async {
 | Project goal | Portfolio piece — not launching as a business |
 | Flutter app UI (player, owner, admin) | Complete (see Known Open Bugs) |
 | Firestore security rules | Production-grade; Nov 2026 changes (bookings CF-only, ownerRequests list scoped) not confirmed deployed |
-| Cloud Functions | 9 in source (`ownerSetSlotBlock` is new). 8 deployed as of March 2026 (Node 20, us-central1); `ownerSetSlotBlock` deployment unconfirmed |
+| Cloud Functions | 12 in source (`ownerSetSlotBlock`, `approveOwnerRequest`, `rejectOwnerRequest`, `submitReview` are new). 8 deployed as of March 2026 (Node 20, us-central1); the 4 new ones and the Nov 2026 fixes are NOT deployed |
 | Cloud Run IAM | allUsers:run.invoker on the original 8 services |
 | Firebase Blaze plan | Active ✅ |
 | Razorpay | Test mode, keys in Secret Manager ✅ |
@@ -383,12 +391,13 @@ verificationCompleted: (PhoneAuthCredential credential) async {
 | Price formatting | Complete (AppFormat.price, Indian numbering across all screens) |
 | CI/CD | Not set up |
 | Tests | Only a placeholder test in `test/widget_test.dart` |
+| Screenshots | `docs/screenshots/` (player flow, Nov 2026); demo turfs in Firestore use placeholder stock photos |
 | Node 20 → 22 upgrade | Overdue (Node 20 deprecated 2026-10-30) |
 | App icon | Still default Flutter icon |
 | iOS bundle ID | `in.turfgo.app` |
 | Android application ID | `in.turfgo.app` |
 | README.md | Rewritten as a portfolio case study (Nov 2026) |
-| Self-serve cancellation | Built (`cancelBooking` CF + bookings screen); fails for multi-slot bookings |
+| Self-serve cancellation | Built (`cancelBooking` CF + bookings screen); multi-slot fix not deployed |
 | Payout flow | NOT built |
 | Push notifications | NOT built |
-| Reviews write path | NOT built |
+| Reviews write path | `submitReview` CF built; no screen calls it yet |

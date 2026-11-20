@@ -9,7 +9,14 @@ Players find a football or cricket turf, pick a time slot, and pay a 20% advance
 > The code is complete enough to read and run locally; it is not live and takes no real payments.
 > [Why I stopped →](#why-i-stopped)
 
-<!-- Screenshots / demo video go here -->
+<p align="center">
+  <img src="docs/screenshots/01-home.png" width="160" alt="Home: turf discovery with sport filters" />
+  <img src="docs/screenshots/02-explore.png" width="160" alt="Explore: search and filter turfs" />
+  <img src="docs/screenshots/03-turf-detail.png" width="160" alt="Turf detail: price, sports, amenities, reviews" />
+  <img src="docs/screenshots/04-slot-selection.png" width="160" alt="Slot selection: pick a date and a range of hourly slots" />
+  <img src="docs/screenshots/05-login.png" width="160" alt="Phone OTP login, shown only at payment" />
+</p>
+<p align="center"><sub>Home · Explore · Turf detail · Slot selection (2 hours, ₹800) · OTP login, which appears only when you go to pay. Turf photos are placeholder demo data.</sub></p>
 
 ---
 
