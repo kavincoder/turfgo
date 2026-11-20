@@ -672,6 +672,86 @@ export const seedSlots = onCall(async (request) => {
   return { seeded: count, date, turfId };
 });
 
+// ── ownerSetSlotBlock ─────────────────────────────────────────────────────────
+// Lets a turf's owner (or an admin) block / unblock a slot for walk-in or
+// maintenance use. Slots are CF-write-only, so this is the only path.
+//
+// Input: turfId, slotId (strings), blocked (boolean)
+
+const OWNER_BLOCK_MARKER = "owner";
+const OWNER_BLOCK_YEARS = 10;
+
+export const ownerSetSlotBlock = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be signed in.");
+  }
+  const uid = request.auth.uid;
+  const { turfId, slotId, blocked } = request.data as {
+    turfId?: unknown;
+    slotId?: unknown;
+    blocked?: unknown;
+  };
+
+  if (
+    typeof turfId !== "string" || !turfId ||
+    typeof slotId !== "string" || !slotId ||
+    typeof blocked !== "boolean"
+  ) {
+    throw new HttpsError("invalid-argument", "turfId, slotId and blocked are required.");
+  }
+
+  try {
+    const [turfDoc, callerDoc] = await Promise.all([
+      db.collection("turfs").doc(turfId).get(),
+      db.collection("users").doc(uid).get(),
+    ]);
+    if (!turfDoc.exists) {
+      throw new HttpsError("not-found", "Turf not found.");
+    }
+    const isAdmin = callerDoc.data()?.role === "admin";
+    if (turfDoc.data()?.ownerId !== uid && !isAdmin) {
+      throw new HttpsError("permission-denied", "Not your turf.");
+    }
+
+    const slotRef = db.collection("turfs").doc(turfId).collection("slots").doc(slotId);
+    await db.runTransaction(async (tx) => {
+      const slotDoc = await tx.get(slotRef);
+      if (!slotDoc.exists) {
+        throw new HttpsError("not-found", "Slot not found.");
+      }
+      const slot = slotDoc.data()!;
+
+      if (blocked) {
+        if (slot.isBooked === true) {
+          throw new HttpsError("failed-precondition", "Slot is already booked.");
+        }
+        const lockedUntil = slot.lockedUntil?.toDate?.() as Date | undefined;
+        const heldByPlayer =
+          lockedUntil && lockedUntil > new Date() && slot.lockedBy !== OWNER_BLOCK_MARKER;
+        if (heldByPlayer) {
+          throw new HttpsError("failed-precondition", "A player is checking out this slot.");
+        }
+        const far = new Date();
+        far.setFullYear(far.getFullYear() + OWNER_BLOCK_YEARS);
+        tx.update(slotRef, {
+          lockedBy: OWNER_BLOCK_MARKER,
+          lockedUntil: admin.firestore.Timestamp.fromDate(far),
+        });
+      } else {
+        if (slot.lockedBy !== OWNER_BLOCK_MARKER) {
+          throw new HttpsError("failed-precondition", "Slot is not owner-blocked.");
+        }
+        tx.update(slotRef, { lockedBy: null, lockedUntil: null });
+      }
+    });
+    return { success: true };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.error("ownerSetSlotBlock failed", err);
+    throw new HttpsError("internal", "Could not update the slot. Please try again.");
+  }
+});
+
 // ── submitOwnerRequest ────────────────────────────────────────────────────────
 // Submits a turf owner registration request.
 //
@@ -1200,7 +1280,6 @@ export const cancelBooking = onCall(
           // Don't re-throw — booking is cancelled. Flag for manual admin review.
           await bookingRef.update({
             refundStatus: "failed",
-            refundError: errText,
           });
         } else {
           const refundData = (await refundRes.json()) as { id: string };

@@ -14,7 +14,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
-import '../booking_success/booking_success_screen.dart';
 
 // Razorpay KEY_ID is returned by createRazorpayOrder CF — never stored in the binary.
 
@@ -146,7 +145,7 @@ class _BookingConfirmationScreenState
       debugPrint('[Payment] Unexpected error: $e\n$st');
       setState(() {
         _paymentState = _PaymentState.failed;
-        _errorMessage = 'Error: $e';
+        _errorMessage = 'Something went wrong. Please try again.';
       });
     }
   }
@@ -171,20 +170,13 @@ class _BookingConfirmationScreenState
 
       if (!mounted) return;
 
-      // Pop back to home and push success screen on top
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (_) => BookingSuccessScreen(
-            turfName: widget.turf.name,
-            slotLabel: widget.slotLabel,
-            selectedDate: widget.selectedDate,
-            totalPaid: _totalAmount,
-            bookingId: bookingId,
-          ),
-        ),
-        (route) => route.isFirst,
-      );
+      context.go('/booking-success', extra: {
+        'turfName': widget.turf.name,
+        'slotLabel': widget.slotLabel,
+        'selectedDate': widget.selectedDate,
+        'totalPaid': _totalAmount,
+        'bookingId': bookingId,
+      });
     } on FirebaseFunctionsException catch (_) {
       if (!mounted) return;
       setState(() {
@@ -227,7 +219,7 @@ class _BookingConfirmationScreenState
       case 'unauthenticated':
         return 'Session expired. Please log in again.';
       default:
-        return e.message ?? 'Something went wrong. Please try again.';
+        return 'Something went wrong. Please try again.';
     }
   }
 

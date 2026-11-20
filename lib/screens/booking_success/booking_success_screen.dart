@@ -1,4 +1,5 @@
 import 'package:confetti/confetti.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
@@ -166,10 +167,7 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen> {
 
                   // ── Buttons ──────────────────────────────────
                   ElevatedButton(
-                    onPressed: () {
-                      // Navigate to Bookings tab
-                      Navigator.popUntil(context, (route) => route.isFirst);
-                    },
+                    onPressed: () => context.go('/home'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
@@ -192,8 +190,7 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen> {
                   SizedBox(height: 12.h),
 
                   TextButton(
-                    onPressed: () =>
-                        Navigator.popUntil(context, (route) => route.isFirst),
+                    onPressed: () => context.go('/home'),
                     child: Text(
                       'Back to Home',
                       style: TextStyle(

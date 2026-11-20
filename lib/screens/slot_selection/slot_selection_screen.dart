@@ -11,7 +11,6 @@ import '../../core/date_utils.dart';
 import '../../models/slot.dart';
 import '../../models/turf.dart';
 import '../../providers/turf_provider.dart';
-import '../booking_confirmation/booking_confirmation_screen.dart';
 
 class SlotSelectionScreen extends ConsumerStatefulWidget {
   final Turf turf;
@@ -156,19 +155,14 @@ class _SlotSelectionScreenState
       selectedSlots.add(match);
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BookingConfirmationScreen(
-          turf: widget.turf,
-          selectedSlots: selectedSlots,
-          selectedDate: _selectedDate,
-          slotLabel: _slotLabel,
-          duration: _duration,
-          sport: _selectedSport,
-        ),
-      ),
-    );
+    context.push('/booking-confirmation', extra: {
+      'turf': widget.turf,
+      'selectedSlots': selectedSlots,
+      'selectedDate': _selectedDate,
+      'slotLabel': _slotLabel,
+      'duration': _duration,
+      'sport': _selectedSport,
+    });
   }
 
   @override

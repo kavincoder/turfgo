@@ -115,6 +115,13 @@ class BookingStatus {
 }
 
 /// User roles
+/// Markers stored in slot.lockedBy for non-player locks.
+class SlotLock {
+  SlotLock._();
+
+  static const String owner = 'owner';
+}
+
 class UserRole {
   UserRole._();
 

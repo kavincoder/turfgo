@@ -246,7 +246,8 @@ class _BookingCardState extends ConsumerState<_BookingCard> {
           '${widget.booking.slotDate} ${widget.booking.slotStartTime}');
       final hoursLeft = slotDt.difference(DateTime.now()).inHours;
       return hoursLeft > 24;
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('bookings_screen.dart: $e\n$st');
       return false;
     }
   }
@@ -256,7 +257,8 @@ class _BookingCardState extends ConsumerState<_BookingCard> {
       final slotDt = DateTime.parse(
           '${widget.booking.slotDate} ${widget.booking.slotStartTime}');
       return slotDt.isAfter(DateTime.now());
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('bookings_screen.dart: $e\n$st');
       return false;
     }
   }

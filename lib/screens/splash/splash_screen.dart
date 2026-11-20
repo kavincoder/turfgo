@@ -1,19 +1,20 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants.dart';
+import '../../providers/user_provider.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
@@ -42,13 +43,11 @@ class _SplashScreenState extends State<SplashScreen> {
     String role = UserRole.player;
     for (int attempt = 0; attempt < 3; attempt++) {
       try {
-        final doc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(firebaseUser.uid)
-            .get();
-        role = (doc.data()?['role'] as String?)?.trim() ?? UserRole.player;
+        role = await ref.read(userRepositoryProvider).fetchRole(firebaseUser.uid) ??
+            UserRole.player;
         break; // success — stop retrying
-      } catch (_) {
+      } catch (e, st) {
+        debugPrint('Splash role fetch attempt ${attempt + 1} failed: $e\n$st');
         if (attempt < 2) {
           await Future.delayed(const Duration(seconds: 1));
         }

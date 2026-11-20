@@ -1,4 +1,4 @@
-package com.example.turfgo
+package com.turfgo.app
 
 import io.flutter.embedding.android.FlutterActivity
 

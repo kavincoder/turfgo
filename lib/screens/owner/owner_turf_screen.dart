@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -11,7 +12,6 @@ import '../../models/slot.dart';
 import '../../models/turf.dart';
 import '../../providers/owner_provider.dart';
 import '../../providers/turf_provider.dart';
-import 'owner_turf_edit_screen.dart';
 
 class OwnerTurfScreen extends ConsumerWidget {
   const OwnerTurfScreen({super.key});
@@ -41,12 +41,9 @@ class OwnerTurfScreen extends ConsumerWidget {
               tooltip: 'Edit turf',
               onPressed: () {
                 final turf = turfsAsync.valueOrNull!.first;
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => OwnerTurfEditScreen(turf: turf),
-                  ),
-                ).then((_) => ref.invalidate(ownerTurfsProvider));
+                context
+                    .push('/owner/turf-edit', extra: turf)
+                    .then((_) => ref.invalidate(ownerTurfsProvider));
               },
             ),
         ],
@@ -186,7 +183,8 @@ class _SlotManagerState extends ConsumerState<_SlotManager> {
       await ref
           .read(slotRepositoryProvider)
           .ownerLockSlot(widget.turf.id, slot.id);
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('Owner block slot failed: $e\n$st');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to block slot')),
@@ -221,7 +219,8 @@ class _SlotManagerState extends ConsumerState<_SlotManager> {
       await ref
           .read(slotRepositoryProvider)
           .ownerUnlockSlot(widget.turf.id, slot.id);
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('Owner unblock slot failed: $e\n$st');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to unblock slot')),
@@ -486,7 +485,7 @@ class _SlotTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isOwnerBlocked =
-        slot.isLocked && slot.lockedBy == 'owner';
+        slot.isLocked && slot.lockedBy == SlotLock.owner;
     final isAppBooked = slot.bookedCount > 0;
     final isFullyBooked = slot.availableCount <= 0 && !isOwnerBlocked;
     final multiCourt = slot.courtCount > 1;

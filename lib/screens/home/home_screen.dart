@@ -4,13 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../core/constants.dart';
 import '../../models/turf.dart';
 import '../../providers/turf_provider.dart';
 import '../../providers/user_provider.dart';
-import '../turf_detail/turf_detail_screen.dart';
 
 /// Fallback city when user has no cityId set or location cannot be determined.
 const _kDefaultCityId = 'city_madurai';
@@ -76,7 +76,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _locationText = city.isNotEmpty ? city : 'Madurai';
         });
       }
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('home_screen.dart: $e\n$st');
       if (mounted) setState(() => _locationText = 'Madurai');
     }
   }
@@ -473,13 +474,7 @@ class _TurfCard extends StatelessWidget {
                       ),
                     ),
                     ElevatedButton(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              TurfDetailScreen(turf: turf),
-                        ),
-                      ),
+                      onPressed: () => context.push('/turf-detail', extra: turf),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,

@@ -99,8 +99,7 @@ service cloud.firestore {
     // • Create: Cloud Functions only — payment must be verified server-side
     //           before a booking doc is written. Never allow direct client writes.
     // • Read  : the booking's own user, the turf owner, or admin.
-    // • Update: the booking's user can cancel a pending booking (status →
-    //           'cancelled', only status + cancelledAt may change).
+    // • Update: Cloud Functions only (cancelBooking).
     // • Delete: nobody.
 
     match /bookings/{bookingId} {
@@ -112,15 +111,9 @@ service cloud.firestore {
 
       allow create: if false; // Cloud Functions only
 
-      allow update: if isAuth()
-        && resource.data.userId    == request.auth.uid
-        && resource.data.status    == 'confirmed'
-        && request.resource.data.status == 'cancelled'
-        // cancelledAt must be set to the server timestamp — not a client value
-        && request.resource.data.cancelledAt == request.time
-        // Only these two fields may change — nothing else
-        && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['status', 'cancelledAt']);
+      // Cancellation goes through the cancelBooking Cloud Function (slot
+      // release + refund) — no direct client updates.
+      allow update: if false;
 
       allow delete: if false;
     }
@@ -226,10 +219,9 @@ service cloud.firestore {
       allow get: if isAuth() && (
         resource.data.userId == request.auth.uid || isAdmin()
       );
-      // Collection query: only the user's own requests (userId filter enforced
-      // client-side — Firestore evaluates the rule per document returned).
+      // Collection query: own requests only (query must filter by userId).
       allow list: if isAuth() && (
-        request.auth.uid != null || isAdmin()
+        resource.data.userId == request.auth.uid || isAdmin()
       );
       allow write: if false; // Cloud Functions only
     }
