@@ -51,7 +51,8 @@ class _OwnerLoginScreenState extends ConsumerState<OwnerLoginScreen> {
       setState(() {
         _error = 'Wrong username or password. Contact TurfGo support.';
       });
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('owner_login_screen.dart: $e\n$st');
       setState(() {
         _error = 'Something went wrong. Please try again.';
       });

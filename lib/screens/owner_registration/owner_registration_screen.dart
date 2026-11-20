@@ -182,13 +182,13 @@ class _OwnerRegistrationScreenState
           ),
         );
       }
-    } catch (e) {
-      debugPrint('Owner registration error: $e');
+    } catch (e, st) {
+      debugPrint('Owner registration error: $e\n$st');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Error: $e',
+              'Could not submit your request. Please try again.',
               style: TextStyle(fontFamily: AppTextStyles.bodyFont),
               maxLines: 4,
               overflow: TextOverflow.ellipsis,

@@ -29,6 +29,8 @@ class AppTheme {
           color: AppColors.textPrimary,
         ),
         iconTheme: IconThemeData(color: AppColors.textPrimary),
+
+        
       ),
       cardTheme: CardThemeData(
         color: AppColors.card,

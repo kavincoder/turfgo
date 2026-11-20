@@ -3,6 +3,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -34,6 +35,17 @@ Future<void> main() async {
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+  // ── Crashlytics ──────────────────────────────────────────────────────────
+  // Route Flutter framework errors and async errors to Crashlytics.
+  // Disabled in debug mode so we see full stack traces in the console instead.
+  if (!kDebugMode) {
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+  }
+
   // ── Local Emulator (opt-in via --dart-define=USE_EMULATOR=true) ──────────
   // Uses localhost for iOS simulator / macOS.
   // For Android emulator change host to '10.0.2.2'.
@@ -43,6 +55,8 @@ Future<void> main() async {
     await FirebaseAuth.instance.useAuthEmulator(host, 9099);
     FirebaseFunctions.instanceFor(region: 'us-central1')
         .useFunctionsEmulator(host, 5001);
+    await FirebaseAuth.instance
+        .setSettings(appVerificationDisabledForTesting: true);
     debugPrint('⚠️  EMULATOR MODE — connected to localhost');
   }
 
@@ -55,30 +69,21 @@ Future<void> main() async {
   // IMPORTANT: after enabling App Check here you must also enforce it in the
   // Firebase Console (App Check → your app → Enforce) so that requests without
   // a valid token are rejected by Firebase itself.
-  await FirebaseAppCheck.instance.activate(
-    androidProvider:
-        kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
-    appleProvider:
-        kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
-  );
-
-  // ── Local emulator (debug only) ───────────────────────────────────────────
-  // In debug mode, point all Firebase services at the local emulator suite.
-  // This lets you test Cloud Functions, Firestore, and Auth without hitting
-  // the real Firebase project — and without needing Blaze plan deployed.
-  //
-  // Start the emulator with: firebase emulators:start
-  // Emulator UI at: http://localhost:4000
-  if (kDebugMode) {
-    FirebaseFunctions.instance.useFunctionsEmulator('localhost', 5001);
-    FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
-    await FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
+  // Web has no App Check provider configured (app ships on iOS/Android only);
+  // activating without one throws, so skip it there.
+  if (!kIsWeb) {
+    await FirebaseAppCheck.instance.activate(
+      androidProvider:
+          kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+      appleProvider:
+          kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
+    );
   }
 
   // Skip reCAPTCHA on simulator/debug (needed for test phone numbers)
-  if (kDebugMode) {
-    await FirebaseAuth.instance.setSettings(appVerificationDisabledForTesting: true);
-  }
+  // NOTE: emulator routing is handled above by the USE_EMULATOR flag only.
+  // Never route to emulator automatically in debug mode — that breaks real
+  // device testing against production Firebase.
 
   // Lock orientation to portrait
   await SystemChrome.setPreferredOrientations([

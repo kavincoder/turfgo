@@ -7,9 +7,14 @@ Read this entire file before writing any code. Every rule here exists for a reas
 
 ## Project Overview
 
-**TurfGo** is a sports turf booking marketplace app. Players discover and book sports turfs, owners manage their listings, and admins oversee the platform. Launching in Madurai first, then expanding across Tamil Nadu.
+**TurfGo** is a sports turf booking marketplace app. Players discover and book sports turfs, owners manage their listings, and admins oversee the platform. Originally planned to launch in Madurai first, then expand across Tamil Nadu.
 
-- **Stack:** Flutter (Dart ^3.8.1) + Firebase (Firestore, Auth, Storage, Crashlytics, App Check) + Cloud Functions (TypeScript, Node 20, v2) + Razorpay payments
+> **Project status (Nov 2026): portfolio piece, not a live business.** After a market review
+> (Playo already lists 62 Madurai venues; Hudle and OneOS charge owners 0%), Kavin stopped
+> TurfGo as a business. Work now targets portfolio quality — a clean repo, bug fixes, tests,
+> CI, a README case study and a demo — not launch features.
+
+- **Stack:** Flutter (Dart ^3.8.1; toolchain Flutter 3.50 / Dart 3.14, iOS plugins via Swift Package Manager) + Firebase (Firestore, Auth, Storage, Crashlytics, App Check) + Cloud Functions (TypeScript, Node 20, v2) + Razorpay payments
 - **State management:** Riverpod 2.x + repository pattern
 - **Navigation:** GoRouter only — never use `Navigator.push` directly
 - **Roles:** `player`, `owner`, `admin` — use `UserRole` constants, never magic strings
@@ -36,14 +41,15 @@ Widget → Provider (Riverpod) → Repository → Firestore / Cloud Function
 | Text styles | `lib/core/constants.dart` — `AppTextStyles` |
 | Price formatting | `lib/core/constants.dart` — `AppFormat.price(amount)` |
 | Payment constants | `lib/core/constants.dart` — `AppPayment` |
-| Amenity icons and labels | `lib/core/amenity_utils.dart` — `AmenityUtils` |
+| Amenity icons and labels | `lib/core/constants.dart` — `AmenityUtils` |
 | Sport labels and emojis | `lib/core/date_utils.dart` — `TurfDateUtils.sportEmoji()` |
 | Role constants | `lib/core/constants.dart` — `UserRole` |
 | Booking status constants | `lib/core/constants.dart` — `BookingStatus` |
 
 ### What writes where
 - `bookings`, `slots`, `transactions`, `payouts`, `otpAttempts`, `pendingOrders`, `referrals` — **Cloud Functions only**. Never write to these from the client under any circumstances.
-- `turfs` (limited fields) — owner can update `name`, `area`, `address`, `sports`, `amenities`, `openTime`, `closeTime` via direct Firestore write. Cannot change `pricePerHour`, `ownerId`, `cityId`, `rating`, `isActive`.
+- `turfs` (limited fields) — owner can update `name`, `area`, `address`, `sports`, `amenities`, `openTime`, `closeTime`, `courtCounts`, `coachingSchedule` via direct Firestore write. Cannot change `pricePerHour`, `ownerId`, `cityId`, `rating`, `isActive`, `commissionRate`.
+- Owner slot blocking goes through the `ownerSetSlotBlock` Cloud Function (slots stay CF-write-only).
 - `users` — user can update own `name`, `cityId` only. Cannot change `role` or `phoneNumber`.
 - `ownerRequests` — written by `submitOwnerRequest()` Cloud Function only.
 
@@ -169,9 +175,9 @@ These must all be true before exposing the app to anyone outside development:
 - [ ] Razorpay webhook URL registered in Razorpay dashboard
 - [ ] Firebase App Check enforcement enabled in Firebase Console
 - [ ] Real support phone number replacing all placeholder numbers
-- [ ] iOS bundle ID updated from `com.example.turfgo`
-- [ ] Crashlytics initialised in `main.dart`
-- [ ] Upgrade Cloud Functions from Node 20 → Node 22 before 2026-10-30 (Node 20 deprecated)
+- [x] iOS bundle ID updated from `com.example.turfgo` (now `in.turfgo.app`)
+- [x] Crashlytics initialised in `main.dart` (release builds only)
+- [ ] Upgrade Cloud Functions from Node 20 → Node 22 — **overdue**: Node 20 was deprecated on 2026-10-30
 
 ---
 
@@ -217,8 +223,8 @@ Understanding this is required before touching any payment-related code.
 | `users/{uid}` | User profile + role | Self, admin | Self (name/cityId), CF (role on upgrade) |
 | `cities/{id}` | City config | All auth | Admin |
 | `turfs/{id}` | Turf listings | All auth | Admin, owner (limited fields) |
-| `turfs/{id}/slots/{id}` | 30-min slot availability | All auth | CFs only |
-| `bookings/{id}` | Booking records | Player + owner + admin | CFs only (cancel: player) |
+| `turfs/{id}/slots/{id}` | 1-hour slot availability | All auth | CFs only |
+| `bookings/{id}` | Booking records | Player + owner + admin | CFs only (cancel via `cancelBooking` CF) |
 | `reviews/{id}` | Turf reviews | All auth | Auth user create (admin update/delete) |
 | `transactions/{id}` | Payment records | Self + admin | CFs only |
 | `payouts/{id}` | Owner payout records | Owner + admin | CFs only |
@@ -295,6 +301,14 @@ verificationCompleted: (PhoneAuthCredential credential) async {
 },
 ```
 
+### iOS Build — Crashlytics Symbol Upload Step (Flutter 3.50+)
+The Xcode build phase `FlutterFire: "flutterfire upload-crashlytics-symbols"` needs the
+FlutterFire CLI (`dart pub global activate flutterfire_cli`). With Swift Package Manager,
+Flutter checks Firebase out under `build/ios/SourcePackages/`, not DerivedData, so the
+script's default path fails. The script now (a) exits early for `Debug` builds and (b) falls
+back to `${SRCROOT}/../build/ios/SourcePackages/...`. Re-running `flutterfire configure`
+may regenerate the script and undo this — re-apply if simulator builds start failing.
+
 ---
 
 ## Navigation Rules
@@ -308,19 +322,29 @@ verificationCompleted: (PhoneAuthCredential credential) async {
 
 ## Known Issues and Active Constraints
 
+### Fixed in Nov 2026 (never reintroduce)
+- **Booking created twice for one payment:** `createBooking` and `razorpayWebhook` now read the `pendingOrders` doc AND query `bookings` by `razorpayOrderId` *inside* their transactions. A second path returns the existing booking / "Already processed" instead of creating another.
+- **Nested array in `bookingIds`:** use `FieldValue.arrayUnion(id)`, never `arrayUnion([id])` — Firestore rejects nested arrays, so every booking write failed.
+- **Multi-slot cancel:** `cancelBooking` reads all slots before writing any. Cancel no longer clears `lockedBy`/`lockedUntil` (that wiped other players' active locks and owner blocks).
+- **Webhook paid-but-slot-taken:** returns 200 and flags the pending order `needsRefund: true` (status `paid_slot_unavailable`) instead of a 500 that Razorpay retries for ~24h. Refunds for these are manual.
+- **Owner registration:** the app sent `userPhone` ("+91…") and a `FieldValue` timestamp; `submitOwnerRequest` now accepts `userPhone`, normalises it, and stores area, hours, amenities and photos. The repository strips `createdAt`/`status`/`rejectionReason` before calling.
+- **Missing CFs added:** `approveOwnerRequest` (creates the turf, promotes the user to owner, marks the request approved), `rejectOwnerRequest`, `submitReview` (verified booking required, one review per user per turf, updates `rating`/`ratingCount`).
+
+### Known Open Bugs (Not Yet Fixed)
+- **None of the Nov 2026 Cloud Function changes are deployed.** Run `npm --prefix functions run build` then `firebase deploy --only functions,firestore:rules`.
+- **Admin role change blocked by rules:** `admin_repository.dart` `updateUserRole` writes another user's `users.role` directly, but the `users` rule only allows self-updates (and never role changes). Needs a Cloud Function. (The `turfs.isActive` toggle is fine — admins may update turfs.)
+
 ### Not Yet Built (Do Not Mark as Complete)
-- Self-serve booking cancellation (currently shows WhatsApp placeholder)
 - Push notifications (firebase_messaging imported, no logic implemented)
-- Reviews write path (model + provider exist, no submit UI)
-- Payout flow for owners (Firestore rules define the collection, nothing else)
+- Review submit UI (the `submitReview` CF and repository exist; no screen calls them yet)
+- Payout flow for owners (`payoutStatus: "pending"` is written on bookings, nothing processes it)
 - City selector for players
-- Turf photo upload for owners (image_picker imported, not used)
+- Photo upload for existing turfs (photos can be uploaded only during owner registration)
 - Referral system (Firestore rules exist, no code)
 
-### Placeholder Values That Must Be Replaced Before Launch
-- Support phone: `+91 98765 43210` — appears in `profile_screen.dart` and `bookings_screen.dart`
-- iOS bundle ID: `com.example.turfgo` — must change in Xcode before App Store submission
-- Android application ID: `com.example.turfgo` — must change in `android/app/build.gradle`
+### Placeholder Values
+- Support phone: `+91 98765 43210` — `AppConfig.supportWhatsApp` in `lib/core/constants.dart`
+- App icon: still the default Flutter icon
 
 ---
 
@@ -328,29 +352,30 @@ verificationCompleted: (PhoneAuthCredential credential) async {
 
 - **Launch city:** Madurai (~40 turfs, targeting 25–30 onboarded)
 - **Expansion plan:** Trichy → Coimbatore → Chennai → other Tamil Nadu cities
-- **Commission:** 8% per booking (`AppPayment.commissionRate`)
+- **Commission:** 13% of the full slot price (`AppPayment.commissionRate`; Cloud Functions default `commissionRate ?? 0.13`, overridable per turf). It is taken out of the 20% advance, so the owner receives 7% online and collects 80% in cash at the venue.
 - **Advance payment:** 20% of total (`AppPayment.advanceRate`)
-- **Slot duration:** 30 minutes each
-- **Max slots per booking:** 4 (2 hours max)
+- **Slot duration:** 1 hour each (`seedSlots` creates hourly slots)
+- **Max slots per booking:** 4 (4 hours max)
 - **Booking window:** Up to 7 days in advance
 - **Slot lock:** 5 minutes (expires automatically if payment not completed)
 - **Sports Phase 1:** Football, Cricket
 - **Sports Phase 2:** Badminton, Tennis (defined in constants, not yet in owner onboarding UI)
-- **Competitor awareness:** Playo operates in metros — stay under the radar until 3+ cities
+- **Competitors (checked Nov 2026):** Playo lists 62 Madurai venues; Playspots lists 9; Hudle and Turf Town are in Tamil Nadu. Hudle and OneOS charge venues 0% commission.
 - **Pricing:** Varies per turf — never assume a fixed price or hardcode one
-- **Test turf:** "Kavin's Turf" seeded in Firestore under `cities/city_madurai`
+- **Demo data:** `lib/seed_main.dart` seeds demo turfs (e.g. "KG Turf Arena", "Madurai Sports Hub", "Ace Badminton Club"); `scripts/` holds admin scripts (`seed_slots.js`, `create_owner.js`, `migrate_slots.js`) that need a local `serviceAccount.json`
 - **Razorpay:** Test mode keys in Firebase Secret Manager. Key ID: rzp_test_... (never hardcode)
 
 ---
 
-## Current Status (as of March 2026)
+## Current Status (as of November 2026)
 
 | Item | Status |
 |---|---|
-| Flutter app UI (player, owner, admin) | Complete |
-| Firestore security rules | Deployed, production-grade |
-| All 8 Cloud Functions | Deployed ✅ (Node 20, us-central1) |
-| Cloud Run IAM | Fixed — allUsers:run.invoker on all 8 services ✅ |
+| Project goal | Portfolio piece — not launching as a business |
+| Flutter app UI (player, owner, admin) | Complete (see Known Open Bugs) |
+| Firestore security rules | Production-grade; Nov 2026 changes (bookings CF-only, ownerRequests list scoped) not confirmed deployed |
+| Cloud Functions | 12 in source (`ownerSetSlotBlock`, `approveOwnerRequest`, `rejectOwnerRequest`, `submitReview` are new). 8 deployed as of March 2026 (Node 20, us-central1); the 4 new ones and the Nov 2026 fixes are NOT deployed |
+| Cloud Run IAM | allUsers:run.invoker on the original 8 services |
 | Firebase Blaze plan | Active ✅ |
 | Razorpay | Test mode, keys in Secret Manager ✅ |
 | Razorpay webhook | Deployed, NOT fully tested end-to-end |
@@ -358,19 +383,21 @@ verificationCompleted: (PhoneAuthCredential credential) async {
 | Guest browsing | Working — login only required at payment ✅ |
 | Advance payment (20%) | Working — shown correctly in booking confirmation ✅ |
 | Firebase App Check | Configured in code, enforcement NOT enabled in Firebase Console |
-| Firebase Crashlytics | Imported in pubspec, NOT initialised in main.dart |
+| Firebase Crashlytics | Initialised in `main.dart` (release builds only) |
 | Firebase Analytics | NOT configured |
 | Firebase Local Emulator | Configured and working (`--dart-define=USE_EMULATOR=true`) |
 | Owner turf edit screen | Complete (`owner_turf_edit_screen.dart`) |
 | Booking detail sheet | Complete (tappable cards, cancel dialog) |
 | Price formatting | Complete (AppFormat.price, Indian numbering across all screens) |
 | CI/CD | Not set up |
-| Node 20 → 22 upgrade | Pending (deadline: 2026-10-30) |
+| Tests | Only a placeholder test in `test/widget_test.dart` |
+| Screenshots | `docs/screenshots/` (player flow, Nov 2026); demo turfs in Firestore use placeholder stock photos |
+| Node 20 → 22 upgrade | Overdue (Node 20 deprecated 2026-10-30) |
 | App icon | Still default Flutter icon |
-| iOS bundle ID | `com.example.turfgo` — placeholder |
-| Android application ID | `com.example.turfgo` — placeholder |
-| README.md | Updated and complete |
-| Self-serve cancellation | NOT built |
+| iOS bundle ID | `in.turfgo.app` |
+| Android application ID | `in.turfgo.app` |
+| README.md | Rewritten as a portfolio case study (Nov 2026) |
+| Self-serve cancellation | Built (`cancelBooking` CF + bookings screen); multi-slot fix not deployed |
 | Payout flow | NOT built |
 | Push notifications | NOT built |
-| Reviews write path | NOT built |
+| Reviews write path | `submitReview` CF built; no screen calls it yet |

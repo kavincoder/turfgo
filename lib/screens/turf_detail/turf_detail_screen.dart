@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/constants.dart';
 import '../../models/review.dart';
 import '../../models/turf.dart';
 import '../../providers/review_provider.dart';
-import '../slot_selection/slot_selection_screen.dart';
 
 class TurfDetailScreen extends ConsumerWidget {
   final Turf turf;
@@ -394,12 +394,7 @@ class TurfDetailScreen extends ConsumerWidget {
                 ],
               ),
               child: ElevatedButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => SlotSelectionScreen(turf: turf),
-                  ),
-                ),
+                onPressed: () => context.push('/slot-selection', extra: turf),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -450,7 +445,8 @@ class _ReviewTile extends StatelessWidget {
   String get _formattedDate {
     try {
       return DateFormat('MMM d, yyyy').format(review.createdAt);
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('turf_detail_screen.dart: $e\n$st');
       return '';
     }
   }

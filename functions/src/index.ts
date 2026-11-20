@@ -479,10 +479,40 @@ export const createBooking = onCall(
       db.collection("turfs").doc(turfId).collection("slots").doc(slotId)
     );
     const bookingRef = db.collection("bookings").doc();
+    const pendingOrderRef = db.collection("pendingOrders").doc(razorpayOrderId);
 
     return db.runTransaction(async (tx) => {
+      // All reads first (Firestore transactions require reads before writes).
+      //
+      // Re-read the pending order INSIDE the transaction. razorpayWebhook may
+      // have created this booking (and deleted the pending order) after our
+      // earlier read. Reading it here makes the two paths conflict, so only
+      // one of them can ever create a booking for this order.
+      const pendingInTx = await tx.get(pendingOrderRef);
+      const existingForOrder = await tx.get(
+        db.collection("bookings")
+          .where("razorpayOrderId", "==", razorpayOrderId)
+          .limit(1)
+      );
       const slotDocs = await Promise.all(slotRefs.map((ref) => tx.get(ref)));
       const now = admin.firestore.Timestamp.now();
+
+      if (!existingForOrder.empty) {
+        // Idempotent: this order was already turned into a booking (by the
+        // webhook or an earlier retry of this call). Return it, don't duplicate.
+        const existing = existingForOrder.docs[0];
+        if (existing.data().userId !== uid) {
+          throw new HttpsError("permission-denied", "Order does not belong to this user.");
+        }
+        return { bookingId: existing.id };
+      }
+
+      if (!pendingInTx.exists) {
+        throw new HttpsError(
+          "not-found",
+          "Order not found. Please start the booking again."
+        );
+      }
 
       for (const slot of slotDocs) {
         if (!slot.exists) {
@@ -560,7 +590,9 @@ export const createBooking = onCall(
         const willBeFull = bc + 1 >= cc - cr;
         tx.update(slotRefs[i], {
           bookedCount: admin.firestore.FieldValue.increment(1),
-          bookingIds: admin.firestore.FieldValue.arrayUnion([bookingRef.id]),
+          // arrayUnion takes elements, not an array — passing [id] would try
+          // to store a nested array, which Firestore rejects.
+          bookingIds: admin.firestore.FieldValue.arrayUnion(bookingRef.id),
           bookingId: bookingRef.id, // backward compat
           isBooked: willBeFull,
           lockedBy: null,
@@ -569,7 +601,7 @@ export const createBooking = onCall(
       }
 
       // Clean up pending order after successful booking
-      tx.delete(db.collection("pendingOrders").doc(razorpayOrderId));
+      tx.delete(pendingOrderRef);
 
       return { bookingId: bookingRef.id };
     });
@@ -672,6 +704,86 @@ export const seedSlots = onCall(async (request) => {
   return { seeded: count, date, turfId };
 });
 
+// ── ownerSetSlotBlock ─────────────────────────────────────────────────────────
+// Lets a turf's owner (or an admin) block / unblock a slot for walk-in or
+// maintenance use. Slots are CF-write-only, so this is the only path.
+//
+// Input: turfId, slotId (strings), blocked (boolean)
+
+const OWNER_BLOCK_MARKER = "owner";
+const OWNER_BLOCK_YEARS = 10;
+
+export const ownerSetSlotBlock = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be signed in.");
+  }
+  const uid = request.auth.uid;
+  const { turfId, slotId, blocked } = request.data as {
+    turfId?: unknown;
+    slotId?: unknown;
+    blocked?: unknown;
+  };
+
+  if (
+    typeof turfId !== "string" || !turfId ||
+    typeof slotId !== "string" || !slotId ||
+    typeof blocked !== "boolean"
+  ) {
+    throw new HttpsError("invalid-argument", "turfId, slotId and blocked are required.");
+  }
+
+  try {
+    const [turfDoc, callerDoc] = await Promise.all([
+      db.collection("turfs").doc(turfId).get(),
+      db.collection("users").doc(uid).get(),
+    ]);
+    if (!turfDoc.exists) {
+      throw new HttpsError("not-found", "Turf not found.");
+    }
+    const isAdmin = callerDoc.data()?.role === "admin";
+    if (turfDoc.data()?.ownerId !== uid && !isAdmin) {
+      throw new HttpsError("permission-denied", "Not your turf.");
+    }
+
+    const slotRef = db.collection("turfs").doc(turfId).collection("slots").doc(slotId);
+    await db.runTransaction(async (tx) => {
+      const slotDoc = await tx.get(slotRef);
+      if (!slotDoc.exists) {
+        throw new HttpsError("not-found", "Slot not found.");
+      }
+      const slot = slotDoc.data()!;
+
+      if (blocked) {
+        if (slot.isBooked === true) {
+          throw new HttpsError("failed-precondition", "Slot is already booked.");
+        }
+        const lockedUntil = slot.lockedUntil?.toDate?.() as Date | undefined;
+        const heldByPlayer =
+          lockedUntil && lockedUntil > new Date() && slot.lockedBy !== OWNER_BLOCK_MARKER;
+        if (heldByPlayer) {
+          throw new HttpsError("failed-precondition", "A player is checking out this slot.");
+        }
+        const far = new Date();
+        far.setFullYear(far.getFullYear() + OWNER_BLOCK_YEARS);
+        tx.update(slotRef, {
+          lockedBy: OWNER_BLOCK_MARKER,
+          lockedUntil: admin.firestore.Timestamp.fromDate(far),
+        });
+      } else {
+        if (slot.lockedBy !== OWNER_BLOCK_MARKER) {
+          throw new HttpsError("failed-precondition", "Slot is not owner-blocked.");
+        }
+        tx.update(slotRef, { lockedBy: null, lockedUntil: null });
+      }
+    });
+    return { success: true };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.error("ownerSetSlotBlock failed", err);
+    throw new HttpsError("internal", "Could not update the slot. Please try again.");
+  }
+});
+
 // ── submitOwnerRequest ────────────────────────────────────────────────────────
 // Submits a turf owner registration request.
 //
@@ -685,23 +797,54 @@ export const submitOwnerRequest = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Must be logged in.");
   }
 
-  const {
-    turfName,
-    address,
-    cityId,
-    sports,
-    pricePerHour,
-    phone,
-    description,
-  } = request.data as {
+  const data = request.data as {
     turfName: string;
     address: string;
     cityId: string;
     sports: string[];
     pricePerHour: number;
-    phone: string;
+    phone?: string;
+    userPhone?: string; // what the app sends (OwnerRequest.toMap), usually "+91XXXXXXXXXX"
+    userName?: string;
+    area?: string;
+    openTime?: string;
+    closeTime?: string;
+    amenities?: string[];
+    photos?: string[];
     description?: string;
   };
+  const { turfName, address, cityId, sports, pricePerHour, description } = data;
+
+  // Accept either `phone` or the app's `userPhone`, and normalise "+91XXXXXXXXXX"
+  // or "91XXXXXXXXXX" down to the 10-digit number.
+  const rawPhone = (data.phone ?? data.userPhone ?? "").replace(/\D/g, "");
+  const phone = rawPhone.length === 12 && rawPhone.startsWith("91") ?
+    rawPhone.slice(2) :
+    rawPhone;
+
+  const userName = (data.userName ?? "").trim();
+  const area = (data.area ?? "").trim();
+  const openTime = data.openTime ?? "06:00";
+  const closeTime = data.closeTime ?? "22:00";
+  const amenities = data.amenities ?? [];
+  const photos = data.photos ?? [];
+
+  if (userName.length > 100 || area.length > 100) {
+    throw new HttpsError("invalid-argument", "Name and area must be 100 characters or less.");
+  }
+  if (!/^\d{2}:\d{2}$/.test(openTime) || !/^\d{2}:\d{2}$/.test(closeTime)) {
+    throw new HttpsError("invalid-argument", "Opening hours must be HH:mm.");
+  }
+  if (!Array.isArray(amenities) || amenities.length > 20 ||
+      amenities.some((a) => typeof a !== "string" || a.length > 50)) {
+    throw new HttpsError("invalid-argument", "Invalid amenities list.");
+  }
+  // Photos must be Firebase Storage URLs uploaded by the app — never arbitrary links.
+  if (!Array.isArray(photos) || photos.length > 10 ||
+      photos.some((p) => typeof p !== "string" ||
+        !p.startsWith("https://firebasestorage.googleapis.com/"))) {
+    throw new HttpsError("invalid-argument", "Invalid photos list.");
+  }
 
   // ── Step 1: Validate ALL inputs before touching Firestore ──────────────
   // Any failure here does NOT lock the user out — they can fix and resubmit.
@@ -711,7 +854,7 @@ export const submitOwnerRequest = onCall(async (request) => {
   if (!cityId?.trim()) missing.push("cityId");
   if (!sports || sports.length === 0) missing.push("sports");
   if (!pricePerHour) missing.push("pricePerHour");
-  if (!phone?.trim()) missing.push("phone");
+  if (!phone) missing.push("phone");
 
   if (missing.length > 0) {
     throw new HttpsError(
@@ -776,7 +919,14 @@ export const submitOwnerRequest = onCall(async (request) => {
     cityId: cityId.trim(),
     sports,
     pricePerHour,
-    phone: phone.trim(),
+    phone,
+    userName,
+    userPhone: `+91${phone}`,
+    area,
+    openTime,
+    closeTime,
+    amenities,
+    photos,
     description: description?.trim() ?? "",
     status: "pending",
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -979,10 +1129,24 @@ export const razorpayWebhook = onRequest(
       db.collection("turfs").doc(turfId).collection("slots").doc(slotId)
     );
     const bookingRef = db.collection("bookings").doc();
+    const pendingOrderRef = db.collection("pendingOrders").doc(razorpayOrderId);
 
     try {
-      await db.runTransaction(async (tx) => {
+      const outcome = await db.runTransaction(async (tx) => {
+        // All reads first. The pending order and the existing-booking check are
+        // read INSIDE the transaction so this path and createBooking conflict
+        // with each other — only one of them can create the booking.
+        const pendingInTx = await tx.get(pendingOrderRef);
+        const existingInTx = await tx.get(
+          db.collection("bookings")
+            .where("razorpayOrderId", "==", razorpayOrderId)
+            .limit(1)
+        );
         const slotDocs = await Promise.all(slotRefs.map((ref) => tx.get(ref)));
+
+        if (!existingInTx.empty || !pendingInTx.exists) {
+          return "already_processed" as const;
+        }
 
         for (const slot of slotDocs) {
           if (!slot.exists) {
@@ -993,7 +1157,16 @@ export const razorpayWebhook = onRequest(
           const cr = (sd.coachingReserved as number | undefined) ?? 0;
           const bc = (sd.bookedCount as number | undefined) ?? 0;
           if (sd.isBooked || cc - cr - bc <= 0) {
-            throw new Error(`Slot ${slot.id} already booked`);
+            // The player paid, but the slot was taken while they were paying.
+            // Retrying will never succeed, so don't return 500 (Razorpay would
+            // retry for ~24h). Flag the order so an admin can refund it.
+            tx.update(pendingOrderRef, {
+              status: "paid_slot_unavailable",
+              razorpayPaymentId,
+              needsRefund: true,
+              flaggedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            return "slot_unavailable" as const;
           }
         }
 
@@ -1037,7 +1210,7 @@ export const razorpayWebhook = onRequest(
           const willBeFull = bc + 1 >= cc - cr;
           tx.update(slotRefs[i], {
             bookedCount: admin.firestore.FieldValue.increment(1),
-            bookingIds: admin.firestore.FieldValue.arrayUnion([bookingRef.id]),
+            bookingIds: admin.firestore.FieldValue.arrayUnion(bookingRef.id),
             bookingId: bookingRef.id,
             isBooked: willBeFull,
             lockedBy: null,
@@ -1046,8 +1219,22 @@ export const razorpayWebhook = onRequest(
         }
 
         // Clean up pending order
-        tx.delete(db.collection("pendingOrders").doc(razorpayOrderId));
+        tx.delete(pendingOrderRef);
+        return "created" as const;
       });
+
+      if (outcome === "already_processed") {
+        res.status(200).send("Already processed");
+        return;
+      }
+      if (outcome === "slot_unavailable") {
+        // Don't log the orderId (CLAUDE.md rule) — find it via needsRefund == true.
+        console.error(
+          "Webhook: paid but slot unavailable — pending order flagged needsRefund for manual refund"
+        );
+        res.status(200).send("Slot unavailable — flagged for refund");
+        return;
+      }
 
       console.log(
         `Webhook: booking created bookingId=${bookingRef.id} orderId=${razorpayOrderId}`
@@ -1138,22 +1325,23 @@ export const cancelBooking = onCall(
       const slotIds = (booking.slotIds as string[]) ?? [];
       const turfId = booking.turfId as string;
 
-      for (const slotId of slotIds) {
-        const slotRef = db
-          .collection("turfs")
-          .doc(turfId)
-          .collection("slots")
-          .doc(slotId);
-        const slotDoc = await tx.get(slotRef);
-        if (slotDoc.exists) {
-          tx.update(slotRef, {
-            bookedCount: admin.firestore.FieldValue.increment(-1),
-            bookingIds: admin.firestore.FieldValue.arrayRemove(bookingId),
-            isBooked: false, // at least one court is now free
-            lockedBy: null,
-            lockedUntil: null,
-          });
-        }
+      // Firestore transactions require ALL reads before ANY writes. Reading
+      // slot N+1 after updating slot N throws, which broke multi-slot cancels.
+      const slotRefs = slotIds.map((slotId) =>
+        db.collection("turfs").doc(turfId).collection("slots").doc(slotId)
+      );
+      const slotDocs = await Promise.all(slotRefs.map((ref) => tx.get(ref)));
+
+      for (let i = 0; i < slotRefs.length; i++) {
+        if (!slotDocs[i].exists) continue;
+        tx.update(slotRefs[i], {
+          bookedCount: admin.firestore.FieldValue.increment(-1),
+          bookingIds: admin.firestore.FieldValue.arrayRemove(bookingId),
+          isBooked: false, // at least one court is now free
+          // Lock fields are deliberately left alone: on a multi-court slot
+          // another player may hold an active lock mid-payment, and an owner
+          // block must survive a cancellation.
+        });
       }
 
       tx.update(bookingRef, {
@@ -1200,7 +1388,6 @@ export const cancelBooking = onCall(
           // Don't re-throw — booking is cancelled. Flag for manual admin review.
           await bookingRef.update({
             refundStatus: "failed",
-            refundError: errText,
           });
         } else {
           const refundData = (await refundRes.json()) as { id: string };
@@ -1229,3 +1416,214 @@ export const cancelBooking = onCall(
     };
   }
 );
+
+// ── Admin helper ──────────────────────────────────────────────────────────────
+async function requireAdmin(uid: string): Promise<void> {
+  const callerDoc = await db.collection("users").doc(uid).get();
+  if (callerDoc.data()?.role !== "admin") {
+    throw new HttpsError("permission-denied", "Admins only.");
+  }
+}
+
+// ── approveOwnerRequest ───────────────────────────────────────────────────────
+// Admin approves a pending owner request. In one transaction it:
+//   1. creates the turf from the request (ownerId = requester, isActive = true)
+//   2. promotes the requester to role 'owner' (never downgrades an admin)
+//   3. marks the request approved and links the new turfId
+// Role changes live here because Firestore rules never let a client write `role`.
+
+export const approveOwnerRequest = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be logged in.");
+  }
+  await requireAdmin(request.auth.uid);
+
+  const { requestId } = request.data as { requestId: string };
+  if (!requestId || typeof requestId !== "string") {
+    throw new HttpsError("invalid-argument", "requestId is required.");
+  }
+
+  const reqRef = db.collection("ownerRequests").doc(requestId);
+  const turfRef = db.collection("turfs").doc();
+
+  const turfId = await db.runTransaction(async (tx) => {
+    const reqDoc = await tx.get(reqRef);
+    if (!reqDoc.exists) {
+      throw new HttpsError("not-found", "Request not found.");
+    }
+    const r = reqDoc.data()!;
+    if (r.status !== "pending") {
+      throw new HttpsError("failed-precondition", `Request is already ${r.status}.`);
+    }
+
+    const userRef = db.collection("users").doc(r.userId as string);
+    const userDoc = await tx.get(userRef);
+    if (!userDoc.exists) {
+      throw new HttpsError("failed-precondition", "Requester has no user profile.");
+    }
+
+    // Writes (all reads are done above).
+    tx.set(turfRef, {
+      name: r.turfName,
+      area: r.area ?? "",
+      address: r.address,
+      cityId: r.cityId,
+      sports: r.sports ?? [],
+      pricePerHour: r.pricePerHour,
+      ownerId: r.userId,
+      photos: r.photos ?? [],
+      amenities: r.amenities ?? [],
+      openTime: r.openTime ?? "06:00",
+      closeTime: r.closeTime ?? "22:00",
+      isActive: true,
+      rating: 0,
+      ratingCount: 0,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    if (userDoc.data()?.role !== "admin") {
+      tx.update(userRef, { role: "owner" });
+    }
+
+    tx.update(reqRef, {
+      status: "approved",
+      reviewedAt: admin.firestore.FieldValue.serverTimestamp(),
+      reviewedBy: request.auth!.uid,
+      turfId: turfRef.id,
+      rejectionReason: null,
+    });
+
+    return turfRef.id;
+  });
+
+  return { success: true, turfId };
+});
+
+// ── rejectOwnerRequest ────────────────────────────────────────────────────────
+// Admin rejects a pending owner request with an optional reason (≤ 500 chars).
+// The requester can submit a new request afterwards (only *pending* ones block).
+
+export const rejectOwnerRequest = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be logged in.");
+  }
+  await requireAdmin(request.auth.uid);
+
+  const { requestId, reason } = request.data as {
+    requestId: string;
+    reason?: string;
+  };
+  if (!requestId || typeof requestId !== "string") {
+    throw new HttpsError("invalid-argument", "requestId is required.");
+  }
+  if (reason !== undefined && reason !== null &&
+      (typeof reason !== "string" || reason.length > 500)) {
+    throw new HttpsError("invalid-argument", "Reason must be 500 characters or less.");
+  }
+
+  const reqRef = db.collection("ownerRequests").doc(requestId);
+
+  await db.runTransaction(async (tx) => {
+    const reqDoc = await tx.get(reqRef);
+    if (!reqDoc.exists) {
+      throw new HttpsError("not-found", "Request not found.");
+    }
+    const status = reqDoc.data()!.status;
+    if (status !== "pending") {
+      throw new HttpsError("failed-precondition", `Request is already ${status}.`);
+    }
+    tx.update(reqRef, {
+      status: "rejected",
+      rejectionReason: reason?.trim() || null,
+      reviewedAt: admin.firestore.FieldValue.serverTimestamp(),
+      reviewedBy: request.auth!.uid,
+    });
+  });
+
+  return { success: true };
+});
+
+// ── submitReview ──────────────────────────────────────────────────────────────
+// Verified review: only a player who actually booked (and whose slot has started)
+// can review that turf. One review per user per turf — the doc ID is
+// `${uid}_${turfId}`, so a second attempt fails atomically.
+// Updates the turf's average rating in the same transaction.
+
+export const submitReview = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be logged in.");
+  }
+  const uid = request.auth.uid;
+
+  const { turfId, bookingId, rating, comment } = request.data as {
+    turfId: string;
+    bookingId: string;
+    rating: number;
+    comment: string;
+  };
+
+  if (!turfId || typeof turfId !== "string" ||
+      !bookingId || typeof bookingId !== "string") {
+    throw new HttpsError("invalid-argument", "turfId and bookingId are required.");
+  }
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    throw new HttpsError("invalid-argument", "Rating must be a whole number from 1 to 5.");
+  }
+  const text = typeof comment === "string" ? comment.trim() : "";
+  if (text.length === 0 || text.length > 500) {
+    throw new HttpsError("invalid-argument", "Comment must be 1–500 characters.");
+  }
+
+  const reviewRef = db.collection("reviews").doc(`${uid}_${turfId}`);
+  const bookingRef = db.collection("bookings").doc(bookingId);
+  const turfRef = db.collection("turfs").doc(turfId);
+
+  await db.runTransaction(async (tx) => {
+    const [reviewDoc, bookingDoc, turfDoc] = await Promise.all([
+      tx.get(reviewRef),
+      tx.get(bookingRef),
+      tx.get(turfRef),
+    ]);
+
+    if (reviewDoc.exists) {
+      throw new HttpsError("already-exists", "You have already reviewed this turf.");
+    }
+    if (!turfDoc.exists) {
+      throw new HttpsError("not-found", "Turf not found.");
+    }
+    if (!bookingDoc.exists) {
+      throw new HttpsError("not-found", "Booking not found.");
+    }
+
+    const b = bookingDoc.data()!;
+    if (b.userId !== uid || b.turfId !== turfId) {
+      throw new HttpsError("permission-denied", "You can only review turfs you have booked.");
+    }
+    if (b.status !== "confirmed" && b.status !== "completed") {
+      throw new HttpsError("failed-precondition", "Only confirmed bookings can be reviewed.");
+    }
+    const slotStart = new Date(`${b.slotDate}T${b.slotStartTime}:00+05:30`);
+    if (isNaN(slotStart.getTime()) || slotStart.getTime() > Date.now()) {
+      throw new HttpsError("failed-precondition", "You can review after your slot has started.");
+    }
+
+    const t = turfDoc.data()!;
+    const oldCount = (t.ratingCount as number | undefined) ?? 0;
+    const oldAvg = (t.rating as number | undefined) ?? 0;
+    const newCount = oldCount + 1;
+    const newAvg = Math.round(((oldAvg * oldCount + rating) / newCount) * 10) / 10;
+
+    tx.set(reviewRef, {
+      userId: uid,
+      turfId,
+      bookingId,
+      rating,
+      comment: text,
+      isVerified: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    tx.update(turfRef, { rating: newAvg, ratingCount: newCount });
+  });
+
+  return { reviewId: reviewRef.id };
+});

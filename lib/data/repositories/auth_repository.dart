@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
+import '../../core/constants.dart';
 
 class AuthRepository {
   final _auth = FirebaseAuth.instance;
@@ -56,7 +56,7 @@ class AuthRepository {
         'name': '',
         'phone': user.phoneNumber ?? '',
         'cityId': '',
-        'role': 'player',
+        'role': UserRole.player,
         'referralCode': null,
         'referredBy': null,
         'createdAt': FieldValue.serverTimestamp(),

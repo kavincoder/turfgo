@@ -19,6 +19,12 @@ class UserRepository {
         });
   }
 
+  /// Fresh server read of the user's role. Throws on network failure.
+  Future<String?> fetchRole(String uid) async {
+    final doc = await _db.collection('users').doc(uid).get();
+    return (doc.data()?['role'] as String?)?.trim();
+  }
+
   Future<void> updateName(String uid, String name) {
     return _db.collection('users').doc(uid).set(
       {'name': name.trim()},

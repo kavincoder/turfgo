@@ -117,11 +117,12 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
       await ref
           .read(ownerRequestRepositoryProvider)
           .approveRequest(widget.request.id);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('Approve owner request failed: $e\n$st');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to approve: $e'),
+            content: const Text('Failed to approve. Please try again.'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -143,11 +144,12 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
       await ref
           .read(ownerRequestRepositoryProvider)
           .rejectRequest(widget.request.id, reason);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('Reject owner request failed: $e\n$st');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to reject: $e'),
+            content: const Text('Failed to reject. Please try again.'),
             backgroundColor: AppColors.error,
           ),
         );

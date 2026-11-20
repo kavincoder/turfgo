@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants.dart';
 import '../../core/date_utils.dart';
 import '../../providers/admin_provider.dart';
-import 'admin_bookings_detail_screen.dart';
-import 'admin_revenue_screen.dart';
-import 'admin_turfs_detail_screen.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -111,13 +109,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                       children: [
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const AdminBookingsDetailScreen(),
-                              ),
-                            ),
+                            onTap: () => context.push('/admin/bookings'),
                             child: _StatCard(
                               icon: Icons.calendar_today_rounded,
                               label: 'Bookings',
@@ -129,13 +121,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                         SizedBox(width: 12.w),
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const AdminRevenueScreen(),
-                              ),
-                            ),
+                            onTap: () => context.push('/admin/revenue'),
                             child: _StatCard(
                               icon: Icons.currency_rupee_rounded,
                               label: 'Revenue',
@@ -170,13 +156,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                       children: [
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const AdminRevenueScreen(),
-                              ),
-                            ),
+                            onTap: () => context.push('/admin/revenue'),
                             child: _StatCard(
                               icon: Icons.account_balance_wallet_rounded,
                               label: 'Total Revenue',
@@ -188,13 +168,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                         SizedBox(width: 12.w),
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const AdminBookingsDetailScreen(),
-                              ),
-                            ),
+                            onTap: () => context.push('/admin/bookings'),
                             child: _StatCard(
                               icon: Icons.receipt_long_rounded,
                               label: 'Total Bookings',
@@ -213,13 +187,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                       children: [
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const AdminTurfsDetailScreen(),
-                              ),
-                            ),
+                            onTap: () => context.push('/admin/turfs'),
                             child: _StatCard(
                               icon: Icons.stadium_rounded,
                               label: 'Active Turfs',

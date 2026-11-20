@@ -16,6 +16,11 @@ class OwnerRepository {
     return snap.docs.map(Turf.fromFirestore).toList();
   }
 
+  /// Owner-editable turf fields only (see firestore.rules locked fields).
+  Future<void> updateTurfDetails(String turfId, Map<String, dynamic> fields) {
+    return _db.collection('turfs').doc(turfId).update(fields);
+  }
+
   /// Streams all bookings for the given turf IDs.
   /// Firestore `whereIn` supports up to 30 values — fine for early stage.
   Stream<List<Booking>> getOwnerBookingsStream(List<String> turfIds) {

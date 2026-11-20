@@ -1,21 +1,22 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/constants.dart';
 import '../../models/turf.dart';
+import '../../providers/owner_provider.dart';
 
-class OwnerTurfEditScreen extends StatefulWidget {
+class OwnerTurfEditScreen extends ConsumerStatefulWidget {
   final Turf turf;
 
   const OwnerTurfEditScreen({super.key, required this.turf});
 
   @override
-  State<OwnerTurfEditScreen> createState() => _OwnerTurfEditScreenState();
+  ConsumerState<OwnerTurfEditScreen> createState() => _OwnerTurfEditScreenState();
 }
 
-class _OwnerTurfEditScreenState extends State<OwnerTurfEditScreen> {
+class _OwnerTurfEditScreenState extends ConsumerState<OwnerTurfEditScreen> {
   final _formKey = GlobalKey<FormState>();
 
   late final TextEditingController _nameCtrl;
@@ -114,10 +115,7 @@ class _OwnerTurfEditScreenState extends State<OwnerTurfEditScreen> {
               })
           .toList();
 
-      await FirebaseFirestore.instance
-          .collection('turfs')
-          .doc(widget.turf.id)
-          .update({
+      await ref.read(ownerRepositoryProvider).updateTurfDetails(widget.turf.id, {
         'name': _nameCtrl.text.trim(),
         'area': _areaCtrl.text.trim(),
         'address': _addressCtrl.text.trim(),
@@ -129,7 +127,8 @@ class _OwnerTurfEditScreenState extends State<OwnerTurfEditScreen> {
         'coachingSchedule': coachingSchedule,
       });
       if (mounted) Navigator.pop(context);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('Turf edit save failed: $e\n$st');
       setState(() {
         _saving = false;
         _error = 'Failed to save changes. Please try again.';

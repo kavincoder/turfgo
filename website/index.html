@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TurfGo | Revolutionizing Sports Turf Bookings in India</title>
+<meta name="description" content="TurfGo is Madurai's sports turf booking platform. Browse, pick your slots, and pay advance — no calls, no WhatsApp, no hassle." />
+<meta property="og:title"       content="TurfGo | Book a Turf in Seconds" />
+<meta property="og:description" content="Madurai's sports turf booking platform. Browse turfs, pick slots, pay advance instantly." />
+<meta property="og:type"        content="website" />
+<meta property="og:url"         content="https://turfgo.in" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏟️</text></svg>" />
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;700;900&family=Plus+Jakarta+Sans:wght@400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>
+  .font-bebas { font-family: 'Bebas Neue', sans-serif; }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 48; }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: #f5f6f7; }
+  ::-webkit-scrollbar-thumb { background: #006a35; border-radius: 10px; }
+
+  /* Firebase form states */
+  #successMsg           { display: none; }
+  #successMsg.show      { display: flex; flex-direction: column; align-items: center;
+                          justify-content: center; text-align: center; padding: 5rem 2rem; }
+  #errorMsg             { display: none; background: #fff0f0; color: #b31b25;
+                          padding: 0.75rem 1rem; border-radius: 0.5rem;
+                          font-size: 0.875rem; font-weight: 500; margin-bottom: 1rem; }
+  #errorMsg.show        { display: block; }
+  .field-error          { display: none; color: #b31b25; font-size: 0.75rem;
+                          margin-top: 4px; font-weight: 500; }
+  .field-error.show     { display: block; }
+  input.error, select.error { outline: 2px solid #b31b25 !important; }
+  .spinner              { width: 22px; height: 22px; border: 3px solid rgba(255,255,255,0.3);
+                          border-top-color: #fff; border-radius: 50%;
+                          animation: spin 0.7s linear infinite; margin: 0 auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "surface-tint": "#006a35",
+          "surface-dim": "#d1d5d7",
+          "on-secondary-fixed-variant": "#5c5b5b",
+          "surface-container-highest": "#dadddf",
+          "on-error": "#ffefee",
+          "inverse-on-surface": "#9b9d9e",
+          "secondary": "#5c5b5b",
+          "surface-container-low": "#eff1f2",
+          "error-dim": "#9f0519",
+          "primary-fixed": "#51f38e",
+          "surface-variant": "#dadddf",
+          "on-secondary": "#f5f2f1",
+          "on-tertiary": "#ddf7ff",
+          "on-primary-fixed": "#00421e",
+          "background": "#f5f6f7",
+          "on-primary-fixed-variant": "#006230",
+          "on-tertiary-fixed-variant": "#005361",
+          "secondary-fixed-dim": "#d6d4d3",
+          "on-error-container": "#570008",
+          "surface": "#f5f6f7",
+          "on-background": "#2c2f30",
+          "tertiary-fixed": "#00dcff",
+          "primary-container": "#51f38e",
+          "error": "#b31b25",
+          "surface-container": "#e6e8ea",
+          "secondary-fixed": "#e5e2e1",
+          "tertiary-fixed-dim": "#00cdee",
+          "inverse-surface": "#0c0f10",
+          "surface-container-high": "#e0e3e4",
+          "inverse-primary": "#51f38e",
+          "on-tertiary-fixed": "#00333d",
+          "outline-variant": "#abadae",
+          "secondary-container": "#e5e2e1",
+          "on-primary": "#cdffd4",
+          "surface-bright": "#f5f6f7",
+          "primary": "#006a35",
+          "primary-fixed-dim": "#3fe582",
+          "on-surface-variant": "#595c5d",
+          "on-primary-container": "#00572a",
+          "on-surface": "#2c2f30",
+          "error-container": "#fb5151",
+          "tertiary-dim": "#005867",
+          "primary-dim": "#005c2d",
+          "on-secondary-container": "#525151",
+          "on-tertiary-container": "#004956",
+          "secondary-dim": "#504f4f",
+          "outline": "#757778",
+          "tertiary-container": "#00dcff",
+          "on-secondary-fixed": "#403f3f",
+          "tertiary": "#006576",
+          "surface-container-lowest": "#ffffff"
+        },
+        fontFamily: {
+          "headline": ["Lexend"],
+          "body": ["Plus Jakarta Sans"],
+          "label": ["Plus Jakarta Sans"]
+        },
+        borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+      },
+    },
+  }
+</script>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container">
+
+<!-- Top Navigation -->
+<nav class="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md shadow-sm">
+  <div class="flex justify-between items-center max-w-7xl mx-auto px-6 py-4">
+    <div class="text-2xl font-black italic tracking-tighter text-primary font-headline">TURFGO</div>
+    <div class="hidden md:flex items-center gap-8">
+      <a class="text-zinc-600 hover:text-primary transition-colors font-medium" href="#how-it-works">Players</a>
+      <a class="text-zinc-600 hover:text-primary transition-colors font-medium" href="#owners">Owners</a>
+      <a class="text-zinc-600 hover:text-primary transition-colors font-medium" href="#how-it-works">How it Works</a>
+    </div>
+    <a class="bg-primary text-white px-6 py-2.5 rounded-full font-bold uppercase tracking-wide hover:scale-105 active:scale-95 transition-all" href="#signup">
+      List Your Turf
+    </a>
+  </div>
+</nav>
+
+<!-- Hero Section -->
+<section class="relative pt-32 pb-20 overflow-hidden min-h-[921px] flex flex-col justify-center">
+  <div class="absolute inset-0 z-0">
+    <img alt="dramatic wide angle shot of a vibrant green artificial football turf at night under stadium floodlights" class="w-full h-full object-cover opacity-20 filter grayscale" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB0ATCjEkjudcdPKefD-PXDo8Jr4gDE9VnX0tiCbTOASpMngwRHxtQuAgG9SuurXpWC6p5GWqN_1tBqwthUkypQ0tIkvAI9OtNt9CDRaUATPgqXs_e7QttbsL9hnoiZsiMPSWEmvr5gC58-2xHc4bD-3rI8ulYLmokUEks3nKKQqgKWqaTeahMAGlFCyAusrKWO5D6Pr4P8CzyBzMRh6xvqngodkfGPc0R1i2Vjt_UivCy-2gt_ERsJxmuNA4BxjjxwVXlBVFgtjqk"/>
+    <div class="absolute inset-0 bg-gradient-to-b from-surface via-transparent to-surface"></div>
+  </div>
+  <div class="max-w-7xl mx-auto px-6 relative z-10">
+    <div class="max-w-4xl">
+      <span class="inline-block py-1 px-4 rounded-full bg-primary-container text-on-primary-container text-xs font-bold uppercase tracking-widest mb-6">
+        Launching in Madurai
+      </span>
+      <h1 class="text-7xl md:text-9xl font-bebas uppercase leading-[0.85] text-on-surface mb-8 tracking-tighter">
+        Revolutionizing <span class="text-primary italic">sports turf</span> bookings in Madurai
+      </h1>
+      <div class="flex flex-wrap gap-4 mt-12">
+        <a href="#signup" class="bg-primary text-white px-10 py-5 rounded-full text-xl font-bold uppercase font-bebas tracking-widest shadow-xl shadow-primary/20 hover:-translate-y-1 transition-all">
+          List Your Turf
+        </a>
+        <a href="#how-it-works" class="bg-surface-container-highest text-on-surface px-10 py-5 rounded-full text-xl font-bold uppercase font-bebas tracking-widest hover:bg-surface-container-high transition-all">
+          How It Works
+        </a>
+      </div>
+    </div>
+  </div>
+  <!-- Stats Bar -->
+  <div class="max-w-7xl mx-auto px-6 mt-20 w-full">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 bg-surface-container-lowest p-8 rounded-xl shadow-sm">
+      <div class="flex flex-col">
+        <span class="text-4xl font-bebas text-primary">40+</span>
+        <span class="text-sm font-bold uppercase text-on-surface-variant tracking-wider">Turfs in Madurai</span>
+      </div>
+      <div class="flex flex-col">
+        <span class="text-4xl font-bebas text-primary">3</span>
+        <span class="text-sm font-bold uppercase text-on-surface-variant tracking-wider">Sports Supported</span>
+      </div>
+      <div class="flex flex-col">
+        <span class="text-4xl font-bebas text-primary">8%</span>
+        <span class="text-sm font-bold uppercase text-on-surface-variant tracking-wider">Commission Only</span>
+      </div>
+      <div class="flex flex-col">
+        <span class="text-4xl font-bebas text-primary">₹0</span>
+        <span class="text-sm font-bold uppercase text-on-surface-variant tracking-wider">Setup Fee for Owners</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- How It Works (Bento Grid) -->
+<section class="py-24 bg-surface-container-low" id="how-it-works">
+  <div class="max-w-7xl mx-auto px-6">
+    <div class="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
+      <div>
+        <h2 class="text-6xl font-bebas uppercase tracking-tighter text-on-surface">Game On in <span class="text-primary">3 Steps</span></h2>
+        <p class="text-on-surface-variant text-lg max-w-md mt-4">We've removed the friction from the field. Booking your next match is now as fast as a striker's sprint.</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="bg-primary-container text-on-primary-container px-4 py-2 rounded-full font-bold text-xs uppercase">Players' Portal</span>
+        <span class="bg-error text-white px-4 py-2 rounded-full font-bold text-xs uppercase animate-pulse">Coming Soon</span>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-6 h-full">
+      <!-- Step 1 -->
+      <div class="md:col-span-4 bg-surface-container-lowest rounded-lg p-8 relative overflow-hidden group">
+        <div class="relative z-10">
+          <span class="text-6xl font-bebas text-primary/20">01</span>
+          <h3 class="text-3xl font-bebas uppercase mt-4 mb-2">Browse</h3>
+          <p class="text-on-surface-variant">Explore top-rated turfs across Madurai. Filter by sport, distance, and amenities.</p>
+        </div>
+        <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
+          <span class="material-symbols-outlined text-[120px]">search</span>
+        </div>
+      </div>
+      <!-- Step 2 -->
+      <div class="md:col-span-4 bg-surface-container-lowest rounded-lg p-8 relative overflow-hidden group">
+        <div class="relative z-10">
+          <span class="text-6xl font-bebas text-primary/20">02</span>
+          <h3 class="text-3xl font-bebas uppercase mt-4 mb-2">Pick Slots</h3>
+          <p class="text-on-surface-variant">Check real-time availability. No more phone tag or waiting for WhatsApp replies.</p>
+        </div>
+        <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
+          <span class="material-symbols-outlined text-[120px]">event_available</span>
+        </div>
+      </div>
+      <!-- Step 3 -->
+      <div class="md:col-span-4 bg-primary rounded-lg p-8 relative overflow-hidden group text-on-primary">
+        <div class="relative z-10">
+          <span class="text-6xl font-bebas text-on-primary/30">03</span>
+          <h3 class="text-3xl font-bebas uppercase mt-4 mb-2">Pay &amp; Play</h3>
+          <p class="opacity-90">Secure instant payments and a confirmed booking receipt. Just show up and play.</p>
+        </div>
+        <div class="absolute -right-4 -bottom-4 opacity-10 group-hover:opacity-20 transition-opacity">
+          <span class="material-symbols-outlined text-[120px]">payments</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Why List on TurfGo (Owner Benefits) -->
+<section class="py-24 bg-surface" id="owners">
+  <div class="max-w-7xl mx-auto px-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+      <div class="relative">
+        <div class="aspect-square rounded-xl overflow-hidden shadow-2xl">
+          <img alt="energetic high-speed action shot of a person playing cricket on a green turf with dust and bright sunlight" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBF0C90PIxQ811NQ_MX5Eegz6DqjurXF9ktFLJxN709vAh778Fbp2kznPW9D7rRG3XYNK8NZZeEFCVjAcKpDlb56Kola7Z5K41FNya5R-fAZCCTdulQZ2eZa_A0Or8zQdFy_FUHZLDgBH_uu7k-HwCC75_-5pFnlGGe8P3up_N3aWH6qIEfMrY6XTqv7QJi-C1LF30b9dmOc4KhDjT8GiiVvtfDgRCcGpXFSBx7ti4DVIOqMA8VeIUdVzSJ_1XkQJMNcgfG7B3kKLI"/>
+        </div>
+        <div class="absolute -bottom-6 -right-6 bg-tertiary-container text-on-tertiary-container p-6 rounded-lg shadow-xl max-w-xs">
+          <span class="material-symbols-outlined mb-2 block">bolt</span>
+          <p class="font-bold text-lg leading-tight uppercase font-bebas tracking-wide">Increase your bookings by 45% with our dashboard.</p>
+        </div>
+      </div>
+      <div>
+        <h2 class="text-6xl font-bebas uppercase tracking-tighter mb-12">Own a turf in Madurai? <span class="text-primary">Scale it.</span></h2>
+        <div class="space-y-10">
+          <div class="flex gap-6">
+            <div class="flex-shrink-0 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <span class="material-symbols-outlined">rocket_launch</span>
+            </div>
+            <div>
+              <h4 class="text-xl font-bold uppercase mb-2">First-Mover Advantage</h4>
+              <p class="text-on-surface-variant">Be among the first 10 turfs to launch in Madurai and get exclusive priority ranking on our search results.</p>
+            </div>
+          </div>
+          <div class="flex gap-6">
+            <div class="flex-shrink-0 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <span class="material-symbols-outlined">schedule</span>
+            </div>
+            <div>
+              <h4 class="text-xl font-bold uppercase mb-2">Automatic Payments</h4>
+              <p class="text-on-surface-variant">No more chasing players for UPI screenshots. Payments land in your account automatically upon booking.</p>
+            </div>
+          </div>
+          <div class="flex gap-6">
+            <div class="flex-shrink-0 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <span class="material-symbols-outlined">analytics</span>
+            </div>
+            <div>
+              <h4 class="text-xl font-bold uppercase mb-2">Bookings Dashboard</h4>
+              <p class="text-on-surface-variant">Full control over your inventory. Block slots for coaching or private events in one click.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Signup Form Section -->
+<section class="py-24 bg-surface-container-low relative overflow-hidden" id="signup">
+  <div class="max-w-7xl mx-auto px-6 relative z-10">
+    <div class="bg-surface-container-lowest rounded-xl shadow-2xl overflow-hidden flex flex-col md:flex-row">
+
+      <!-- Left — copy -->
+      <div class="md:w-1/2 p-12 lg:p-20 bg-inverse-surface text-surface flex flex-col justify-center">
+        <h2 class="text-6xl font-bebas uppercase tracking-tighter mb-6 leading-none">Get Your Turf <span class="text-primary-fixed">Live</span></h2>
+        <p class="text-lg text-surface-dim mb-8">Join the elite network of turfs launching in Madurai. Fill out the form, and our onboarding team will handle the rest.</p>
+        <div class="space-y-4">
+          <div class="flex items-center gap-4 text-surface-dim">
+            <span class="material-symbols-outlined text-primary-fixed">check_circle</span>
+            <span>Dedicated Onboarding Manager</span>
+          </div>
+          <div class="flex items-center gap-4 text-surface-dim">
+            <span class="material-symbols-outlined text-primary-fixed">check_circle</span>
+            <span>Free Professional Photography</span>
+          </div>
+          <div class="flex items-center gap-4 text-surface-dim">
+            <span class="material-symbols-outlined text-primary-fixed">check_circle</span>
+            <span>24/7 WhatsApp Support</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right — form -->
+      <div class="md:w-1/2 p-12 lg:p-20">
+
+        <!-- Form wrapper (hidden on success) -->
+        <div id="formWrap">
+          <div id="errorMsg"></div>
+
+          <form id="ownerForm" novalidate class="space-y-6">
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Full Name</label>
+              <input id="name" class="w-full bg-surface-container-low border-none rounded-md px-4 py-4 focus:ring-2 focus:ring-primary focus:bg-white transition-all outline-none" placeholder="Enter your full name" type="text" autocomplete="name"/>
+              <div class="field-error" id="nameError"></div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Turf Name</label>
+              <input id="turfName" class="w-full bg-surface-container-low border-none rounded-md px-4 py-4 focus:ring-2 focus:ring-primary focus:bg-white transition-all outline-none" placeholder="e.g. Madurai Arena Park" type="text"/>
+              <div class="field-error" id="turfNameError"></div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">City</label>
+              <select id="city" class="w-full bg-surface-container-low border-none rounded-md px-4 py-4 focus:ring-2 focus:ring-primary focus:bg-white transition-all outline-none">
+                <option value="Madurai">Madurai</option>
+                <option value="Trichy">Trichy</option>
+                <option value="Coimbatore">Coimbatore</option>
+                <option value="Chennai">Chennai</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">WhatsApp Number</label>
+              <div class="flex gap-2">
+                <span class="bg-surface-container-low px-4 py-4 rounded-md font-bold text-on-surface-variant">+91</span>
+                <input id="phone" class="flex-1 bg-surface-container-low border-none rounded-md px-4 py-4 focus:ring-2 focus:ring-primary focus:bg-white transition-all outline-none" maxlength="10" inputmode="numeric" placeholder="10-digit mobile number" type="tel" autocomplete="tel-national"/>
+              </div>
+              <div class="field-error" id="phoneError"></div>
+            </div>
+
+            <button id="submitBtn" class="w-full bg-primary text-white py-5 rounded-full font-bebas text-2xl uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all" type="submit">
+              <span id="btnText" style="display:flex;align-items:center;justify-content:center;gap:8px;">
+                Submit My Turf
+              </span>
+              <div class="spinner" id="btnSpinner" style="display:none;"></div>
+            </button>
+          </form>
+        </div>
+
+        <!-- Success state -->
+        <div id="successMsg">
+          <div class="w-20 h-20 bg-primary-container text-on-primary-container rounded-full flex items-center justify-center mx-auto mb-6">
+            <span class="material-symbols-outlined text-4xl">check</span>
+          </div>
+          <h3 class="text-3xl font-bebas uppercase mb-4">You're on the list!</h3>
+          <p class="text-on-surface-variant">We'll WhatsApp you within 24 hours to get your turf live.</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="bg-surface-container-low py-20">
+  <div class="max-w-7xl mx-auto px-6">
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-12 border-b border-surface-container pb-16">
+      <div class="md:col-span-4">
+        <div class="text-3xl font-black italic tracking-tighter text-on-surface font-headline mb-6">TURFGO</div>
+        <p class="text-on-surface-variant mb-6">Building India's largest ecosystem for professional and recreational turf sports. Launching soon in Madurai.</p>
+      </div>
+      <div class="md:col-span-2">
+        <h5 class="font-bold uppercase tracking-widest text-xs mb-6 text-on-surface">Company</h5>
+        <ul class="space-y-4 text-on-surface-variant">
+          <li><a class="hover:text-primary transition-colors" href="#">About Us</a></li>
+          <li><a class="hover:text-primary transition-colors" href="#">Careers</a></li>
+          <li><a class="hover:text-primary transition-colors" href="#">Blog</a></li>
+        </ul>
+      </div>
+      <div class="md:col-span-2">
+        <h5 class="font-bold uppercase tracking-widest text-xs mb-6 text-on-surface">Support</h5>
+        <ul class="space-y-4 text-on-surface-variant">
+          <li><a class="hover:text-primary transition-colors" href="#">Privacy Policy</a></li>
+          <li><a class="hover:text-primary transition-colors" href="#">Terms of Service</a></li>
+          <li><a class="hover:text-primary transition-colors" href="#">Refund Policy</a></li>
+        </ul>
+      </div>
+      <div class="md:col-span-4">
+        <h5 class="font-bold uppercase tracking-widest text-xs mb-6 text-on-surface">Contact Us</h5>
+        <ul class="space-y-4 text-on-surface-variant">
+          <li class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-primary">mail</span>
+            <a href="mailto:support1@turfgo.in" class="hover:text-primary transition-colors">support1@turfgo.in</a>
+          </li>
+          <li class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-primary">mail</span>
+            <a href="mailto:turfgo.official@gmail.com" class="hover:text-primary transition-colors">turfgo.official@gmail.com</a>
+          </li>
+          <li class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-primary">photo_camera</span>
+            <a href="https://instagram.com/turf.go" target="_blank" rel="noopener noreferrer" class="hover:text-primary transition-colors">@turf.go</a>
+          </li>
+          <li class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-primary">location_on</span>
+            <span>Madurai, Tamil Nadu</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+    <div class="pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+      <p class="text-sm text-on-surface-variant">© 2026 TurfGo India. All rights reserved. Madurai, Tamil Nadu.</p>
+      <div class="flex items-center gap-8 text-sm font-bold uppercase tracking-widest text-on-surface-variant">
+        <a href="#signup" class="text-primary hover:underline">List Your Turf</a>
+        <span class="opacity-50">Book a Game (Coming Soon)</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- Firebase JS SDK (ESM from CDN) -->
+<script type="module" src="app.js"></script>
+
+</body>
+</html>

@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -8,7 +9,6 @@ import '../../core/constants.dart';
 import '../../models/turf.dart';
 import '../../providers/turf_provider.dart';
 import '../../providers/user_provider.dart';
-import '../turf_detail/turf_detail_screen.dart';
 
 const _kDefaultCityId = 'city_madurai';
 
@@ -217,12 +217,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                         padding: EdgeInsets.only(bottom: 16.h),
                         child: _ExploreTurfCard(
                           turf: t,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => TurfDetailScreen(turf: t),
-                            ),
-                          ),
+                          onTap: () => context.push('/turf-detail', extra: t),
                         ),
                       ),
                     ),
