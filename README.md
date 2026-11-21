@@ -196,6 +196,7 @@ firestore.rules          security rules (catch-all deny at the bottom)
 storage.rules            image uploads: own folder, images only, < 5 MB
 scripts/                 admin scripts (seed slots, create owner, migrate slots)
 website/                 static landing page with an owner waitlist
+                         (copy config.example.js → config.js for your own keys)
 docs/                    market review and an earlier progress report
 ```
 

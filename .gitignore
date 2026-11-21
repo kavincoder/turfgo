@@ -92,3 +92,6 @@ pglite-debug.log
 
 # Firebase Hosting deploy cache
 .firebase/
+
+# Website config with real keys (see website/config.example.js)
+website/config.js
