@@ -4,15 +4,8 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, doc, setDoc, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
-// ── Firebase config (public client identifiers — safe in frontend) ──────────
-const firebaseConfig = {
-  apiKey:            'AIzaSyD12oYjwyc4Av4V9KAI6fKQ5PCvTHuxjHA',
-  authDomain:        'turfgo-3c555.firebaseapp.com',
-  projectId:         'turfgo-3c555',
-  storageBucket:     'turfgo-3c555.firebasestorage.app',
-  messagingSenderId: '860814301168',
-  appId:             '1:860814301168:web:bde0c3e1476c8f9a94af35',
-};
+// ── Site config (gitignored config.js — see config.example.js) ─────────────
+import { firebaseConfig, web3formsAccessKey, contactEmail } from './config.js';
 
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
@@ -102,7 +95,7 @@ form.addEventListener('submit', async (e) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        access_key: 'd7179924-29e3-4451-9fca-2fc8d35582c2',
+        access_key: web3formsAccessKey,
         subject:    '🏟️ New Turf Owner Sign-Up — TurfGo',
         from_name:  'TurfGo Waitlist',
         name:       data.name,
@@ -124,7 +117,7 @@ form.addEventListener('submit', async (e) => {
 
     errorMsg.textContent = err.code === 'permission-denied'
       ? 'This number is already registered. We\'ll be in touch soon!'
-      : 'Something went wrong. Please try again or WhatsApp us at turfgo.official@gmail.com.';
+      : `Something went wrong. Please try again or email us at ${contactEmail}.`;
     errorMsg.classList.add('show');
   }
 });
